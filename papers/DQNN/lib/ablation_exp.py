@@ -26,6 +26,7 @@ from papers.DQNN.lib.photonic_qt_utils import (
     probs_to_weights,
     generate_qubit_states_torch,
 )
+from papers.DQNN.lib.classical_utils import evaluate_classical_model
 from papers.DQNN.lib.model import (
     PhotonicQuantumTrain,
     train_quantum_model,
@@ -176,51 +177,6 @@ def create_ablation_class(bond, bs: List[BosonSampler] = None):
     return AblationModule().to(device)
 
 
-def evaluate_ab_model(
-    model: torch.nn.Module,
-    val_loader: DataLoader,
-):
-    """
-    Evaluate the ablation model on a validation loader.
-
-    Parameters
-    ----------
-    model : torch.nn.Module
-        Ablation model to evaluate.
-    val_loader : DataLoader
-        Validation data loader.
-
-    Returns
-    -------
-    tuple[float, float]
-        Accuracy in percent and mean validation loss.
-    """
-
-    criterion = nn.CrossEntropyLoss()
-    model.eval()
-    correct = 0
-    total = 0
-    loss_test_list = []
-
-    with torch.no_grad():
-        for images, labels in val_loader:
-            images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
-            loss_test = criterion(outputs, labels).cpu().detach().numpy()
-            loss_test_list.append(loss_test)
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-
-    print(f"Accuracy on the test set: {(100 * correct / total):.2f}%")
-    print(f"Loss on the test set: {np.mean(loss_test_list):.2f}")
-
-    return (
-        100 * correct / total,
-        np.mean(loss_test_list, dtype=float),
-    )
-
-
 def run_ablation_exp(
     bond_dimensions_to_test: List[int] = np.arange(2, 17),
     num_training_rounds: int = 2,
@@ -338,7 +294,7 @@ def run_ablation_exp(
 
                 train_loss /= len(train_loader)
 
-        acc_ab, loss_ab = evaluate_ab_model(ablation_model, val_loader)
+        acc_ab, loss_ab = evaluate_classical_model(ablation_model, val_loader)
 
         ################################################################################################################################
         print("QTrain")
@@ -384,17 +340,15 @@ def run_ablation_exp(
         loss_ablation.append(loss_ab)
         accuracy_ablation.append(acc_ab)
 
-        json_str = json.dumps(
-            {
-                "loss_qt": loss_qt,
-                "accuracy_qt": accuracy_qt,
-                "params_qt": params_qt,
-                "loss_ablation": loss_ablation,
-                "accuracy_ablation": accuracy_ablation,
-                "params_ablation": params_ablation,
-            },
-            indent=4,
-        )
+        json_payload = {
+            "loss_qt": [float(v) for v in loss_qt],
+            "accuracy_qt": [float(v) for v in accuracy_qt],
+            "params_qt": [int(v) for v in params_qt],
+            "loss_ablation": [float(v) for v in loss_ablation],
+            "accuracy_ablation": [float(v) for v in accuracy_ablation],
+            "params_ablation": [int(v) for v in params_ablation],
+        }
+        json_str = json.dumps(json_payload, indent=4)
         with open(current_dir + "ablation_data.json", "w") as f:
             f.write(json_str)
     if generate_graph:

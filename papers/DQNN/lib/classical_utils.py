@@ -5,6 +5,7 @@ This module provides models, pruning helpers, and dataset/training utilities
 used alongside the photonic quantum train.
 """
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -310,3 +311,48 @@ def train_classical_cnn(
 
     print(f"Accuracy on the test set: {(100 * correct / total):.2f}%")
     return model
+
+
+def evaluate_classical_model(
+    model: torch.nn.Module,
+    val_loader: DataLoader,
+):
+    """
+    Evaluate the ablation model on a validation loader.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        Ablation model to evaluate.
+    val_loader : DataLoader
+        Validation data loader.
+
+    Returns
+    -------
+    tuple[float, float]
+        Accuracy in percent and mean validation loss.
+    """
+
+    criterion = nn.CrossEntropyLoss()
+    model.eval()
+    correct = 0
+    total = 0
+    loss_test_list = []
+
+    with torch.no_grad():
+        for images, labels in val_loader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            loss_test = criterion(outputs, labels).cpu().detach().numpy()
+            loss_test_list.append(loss_test)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    print(f"Accuracy on the test set: {(100 * correct / total):.2f}%")
+    print(f"Loss on the test set: {np.mean(loss_test_list):.2f}")
+
+    return (
+        100 * correct / total,
+        np.mean(loss_test_list, dtype=float),
+    )

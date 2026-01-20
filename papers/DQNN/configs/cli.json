@@ -3,7 +3,7 @@
   "arguments": [
     {
       "flags": ["--exp_to_run"],
-      "help": "Which experiment to run between 'DEFAULT', 'BOND', 'ABLATION'  (default: 'DEFAULT')",
+      "help": "Which experiment to run between 'DEFAULT', 'BOND', 'ABLATION' and COMPRESSION (default: 'DEFAULT')",
       "type": "str",
       "default": null,
       "apply": {"kind": "config_path", "path": "exp_to_run"}

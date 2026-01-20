@@ -20,6 +20,7 @@ warnings.filterwarnings("ignore")
 from papers.DQNN.lib.ablation_exp import run_ablation_exp
 from papers.DQNN.lib.bond_dimension_exp import run_bond_dimension_exp
 from papers.DQNN.lib.default_exp import run_default_exp
+from papers.DQNN.lib.compression_exp import run_compression_exp
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -80,6 +81,18 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
             generate_graph=generate_graph,
             run_dir=run_dir,
         )
+    elif exp_to_run == "COMPRESSION":
+        print("Running the ABLATION experiment")
+        run_compression_exp(
+            bond_dimensions_to_test=bond_dimensions_to_test or list(range(1, 11)),
+            num_training_rounds=cfg.get("num_training_rounds", 2),
+            classical_epochs=cfg.get("classical_epochs", 2),
+            num_epochs=cfg.get("num_epochs", 5),
+            qu_train_with_cobyla=cfg.get("qu_train_with_cobyla", False),
+            num_qnn_train_step=cfg.get("num_qnn_train_step", 12),
+            generate_graph=generate_graph,
+            run_dir=run_dir,
+        )
     else:
         raise NameError("No experiment with that name")
 
@@ -125,6 +138,17 @@ def main():
             bond_dimensions_to_test=args.bond_dimensions_to_test,
             num_training_rounds=args.num_training_rounds,
             num_epochs=args.num_epochs,
+            qu_train_with_cobyla=args.qu_train_with_cobyla,
+            num_qnn_train_step=args.num_qnn_train_step,
+            generate_graph=not args.dont_generate_graph,
+        )
+    elif args.exp_to_run == "COMPRESSION":
+        print("Running the COMPRESSION experiment")
+        run_compression_exp(
+            bond_dimensions_to_test=args.bond_dimensions_to_test,
+            num_training_rounds=args.num_training_rounds,
+            num_epochs=args.num_epochs,
+            classical_epochs=args.classical_epochs,
             qu_train_with_cobyla=args.qu_train_with_cobyla,
             num_qnn_train_step=args.num_qnn_train_step,
             generate_graph=not args.dont_generate_graph,

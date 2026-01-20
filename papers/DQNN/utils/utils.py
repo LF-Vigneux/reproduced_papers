@@ -142,7 +142,7 @@ def parse_args():
         "--exp_to_run",
         type=str,
         default="DEFAULT",
-        help="Which experiment to run between 'DEFAULT', 'BOND', 'ABLATION'  (default: 'DEFAULT')",
+        help="Which experiment to run between 'DEFAULT', 'BOND', 'ABLATION' and COMPRESSION (default: 'DEFAULT')",
     )
     parser.add_argument(
         "--bond_dim",
@@ -450,6 +450,115 @@ def plot_ablation_exp(
     else:
         plt.savefig(
             run_dir / "ablation_graph.pdf",
+            format="pdf",
+            bbox_inches="tight",
+        )
+
+
+def plot_compression_exp(
+    accuracy_ws,
+    params_ws,
+    accuracy_prun,
+    params_prun,
+    accuracy_qt,
+    gen_error_qt,
+    params_qt,
+    classical_target_acc=(6700, 96.890),
+    classical_target_gen_error=0.1690,
+    run_dir: Path = None,
+):
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4), constrained_layout=True)
+
+    # ---------- Panel (a): Accuracy ----------
+    ax1.plot(
+        params_qt,
+        accuracy_qt,
+        marker="s",
+        label="photonic QT",
+    )
+
+    ax1.plot(
+        params_ws,
+        accuracy_ws,
+        marker="^",
+        label="weight sharing",
+    )
+
+    ax1.plot(
+        params_prun,
+        accuracy_prun,
+        marker="o",
+        label="pruning",
+    )
+
+    # Classical target (single star)
+    if classical_target_acc is not None:
+        ax1.plot(
+            classical_target_acc[0],
+            classical_target_acc[1],
+            marker="*",
+            markersize=12,
+            linestyle="None",
+            label="classical target",
+        )
+
+    ax1.set_xlim(0, 7000)
+    ax1.set_ylim(20, 100)
+    ax1.set_xlabel("# Trainable Parameters")
+    ax1.set_ylabel("Testing Accuracy (%)")
+    ax1.text(
+        0.02,
+        0.98,
+        "(a)",
+        transform=ax1.transAxes,
+        ha="left",
+        va="top",
+        fontweight="bold",
+    )
+    ax1.grid(True, linestyle=":")
+    ax1.legend()
+
+    # ---------- Panel (b): Generalization error ----------
+    if classical_target_gen_error is not None:
+        ax2.axhline(
+            classical_target_gen_error,
+            label="classical target",
+        )
+
+    ax2.plot(
+        params_qt,
+        gen_error_qt,
+        marker="s",
+        label="photonic QT",
+    )
+
+    ax2.set_xlim(0, 3500)
+    ax2.set_ylim(0, 0.32)
+    ax2.set_xlabel("# Trainable Parameters")
+    ax2.set_ylabel("Gen. error")
+    ax2.text(
+        0.02,
+        0.98,
+        "(b)",
+        transform=ax2.transAxes,
+        ha="left",
+        va="top",
+        fontweight="bold",
+    )
+    ax2.grid(True, linestyle=":")
+    ax2.legend()
+
+    plt.tight_layout()
+    if run_dir is None:
+        plt.savefig(
+            str(pathlib.Path(__file__).parent.parent.resolve())
+            + "/results/bond_dimension_graph.pdf",
+            format="pdf",
+            bbox_inches="tight",
+        )
+    else:
+        plt.savefig(
+            run_dir / "bond_dimension_graph.pdf",
             format="pdf",
             bbox_inches="tight",
         )

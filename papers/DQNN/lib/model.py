@@ -415,8 +415,8 @@ def train_quantum_model(
                             f"Training round [{round_ + 1}/{num_training_rounds}], Q-Epoch [{train_s + 1}/{num_qnn_train_step}], Step [{i + 1}/{len(train_loader_qnn)}], Loss: {loss.item():.4f}, batch time: {time.time() - since_batch:.2f}, accuracy:  {(acc):.2f}%"
                         )
 
-            loss_list_epoch.append(loss.item())
-            acc_list_epoch.append(acc)
+            loss_list_epoch.append(float(loss.item()))
+            acc_list_epoch.append(float(acc))
 
     return qt_model, qnn_parameters, loss_list_epoch, acc_list_epoch
 
