@@ -287,13 +287,7 @@ def run_ablation_exp(
 
         # Training setting
         step = 1e-3  # Learning rate
-        q_delta = 2 * np.pi
 
-        init_qnn_parameters = q_delta * np.random.rand(
-            bs_1.num_effective_params + bs_2.num_effective_params
-        )
-
-        qnn_parameters = init_qnn_parameters
         criterion = nn.CrossEntropyLoss()
 
         optimizer = optim.Adam(ablation_model.parameters(), lr=step)
