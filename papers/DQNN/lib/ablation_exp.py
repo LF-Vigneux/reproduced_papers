@@ -31,6 +31,7 @@ from papers.DQNN.lib.model import (
     train_quantum_model,
     evaluate_model,
 )
+from papers.DQNN.lib.boson_sampler import BosonSampler
 from papers.DQNN.utils.utils import plot_ablation_exp, create_datasets
 import torch.nn.functional as F
 
@@ -40,7 +41,7 @@ from papers.DQNN.lib.TorchMPS.torchmps import MPS
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
 
-def create_ablation_class(bond):
+def create_ablation_class(bond, bs: List[BosonSampler] = None):
     """
     Create an lone MPS model for the experiment.
 
@@ -98,7 +99,17 @@ def create_ablation_class(bond):
             """
             from papers.DQNN.lib.classical_utils import CNNModel
 
-            probs_ = random_tensor
+            with torch.no_grad():
+                if bs is None:
+                    probs_ = random_tensor
+                else:
+                    probs_1 = bs[0].quantum_layer()
+                    probs_2 = bs[1].quantum_layer()
+                    probs_ = (
+                        torch.outer(probs_1, probs_2)
+                        .flatten()
+                        .reshape(bs[0].embedding_size * bs[1].embedding_size, 1)
+                    )
 
             probs_ = probs_[: len(nw_list_normal)]
             probs_ = probs_.reshape(len(nw_list_normal), 1)
@@ -268,7 +279,7 @@ def run_ablation_exp(
         qt_model = PhotonicQuantumTrain(n_qubit, bond_dim=bond).to(device)
 
         ### Ablation
-        ablation_model = create_ablation_class(bond=bond)
+        ablation_model = create_ablation_class(bond=bond, bs=[bs_1, bs_2])
 
         params_ablation.append(
             sum(p.numel() for p in ablation_model.parameters() if p.requires_grad)
@@ -333,7 +344,7 @@ def run_ablation_exp(
 
                 train_loss /= len(train_loader)
 
-        acc_ab, loss_ab = evaluate_ab_model(ablation_model, val_loader, qnn_parameters)
+        acc_ab, loss_ab = evaluate_ab_model(ablation_model, val_loader)
 
         ################################################################################################################################
         print("QTrain")
