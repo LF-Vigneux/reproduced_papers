@@ -6,6 +6,8 @@ qubit calculations, and probability-to-weight mapping utilities.
 """
 
 import numpy as np
+import torch.nn as nn
+from math import comb
 import torch
 import sys
 import os
@@ -17,48 +19,57 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "TorchMPS"))
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
 
-def create_boson_samplers() -> BosonSampler:
+def create_boson_samplers(nw_list_normal: List[float]) -> BosonSampler:
     """
     Create the boson samplers used in photonic quantum training.
 
     Parameters
     ----------
-    None
+    nw_list_normal : List[float]
+        Indices of network weights to keep from the generated probabilities.
 
     Returns
     -------
     tuple
-        Two BosonSampler instances configured for the experiment.
+        The list of BosonSamplers composing the quantum layer.
     """
-    bs_1 = BosonSampler(m=9, n=4)
-    print(
-        f"Boson sampler defined with number of parameters = {bs_1.nb_parameters}, and embedding size = {bs_1.embedding_size}"
-    )
+    nw_list_normal_len = len(nw_list_normal)
+    bs = []
 
-    bs_2 = BosonSampler(m=8, n=4)
-    print(
-        f"Boson sampler defined with number of parameters = {bs_2.nb_parameters}, and embedding size = {bs_2.embedding_size}"
-    )
-    return bs_1, bs_2
+    num_bs = int(
+        np.floor(np.log(nw_list_normal_len) / np.log(252))
+    )  # 252 is comb(10,5)
+
+    for _ in range(num_bs):
+        bs.append(BosonSampler(m=10, n=5))
+    num_params_filled = 256**num_bs
+    if num_params_filled == nw_list_normal_len:
+        return bs
+    for i in range(1, 11):
+        if num_params_filled * comb(i, i // 2) >= nw_list_normal_len:
+            bs.append(BosonSampler(m=i, n=i // 2))
+            return bs
+    raise SyntaxError("Function create_boson_samplers failed")
 
 
-def calculate_qubits() -> Tuple[int, List[float]]:
+def calculate_qubits(model: nn.Module) -> Tuple[int, List[float]]:
     """
     Compute the number of qubits required for the CNN weight mapping.
+
+    Parameters
+    ----------
+    model: nn.Module
+        The classical model whose parameters we want to optimize.
 
     Returns
     -------
     Tuple[int, List[float]]
         Number of qubits and flattened list of CNN parameters.
     """
-    from papers.DQNN.lib.classical_utils import CNNModel
-
-    standard_model = CNNModel(use_weight_sharing=False, shared_rows=10)
-
     numpy_weights = {}
     nw_list = []
     nw_list_normal = []
-    for name, param in standard_model.state_dict().items():
+    for name, param in model.state_dict().items():
         numpy_weights[name] = param.cpu().numpy()
     for i in numpy_weights:
         nw_list.append(list(numpy_weights[i].flatten()))

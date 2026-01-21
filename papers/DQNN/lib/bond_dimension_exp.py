@@ -22,6 +22,7 @@ from papers.DQNN.lib.photonic_qt_utils import (
     calculate_qubits,
 )
 from papers.DQNN.lib.model import PhotonicQuantumTrain, train_quantum_model
+from papers.DQNN.lib.classical_utils import CNNModel
 from papers.DQNN.utils.utils import plot_bond_exp, create_datasets
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -72,11 +73,12 @@ def run_bond_dimension_exp(
 
     # Bond dimension
     for bd in bond_dimensions_to_test:
-        bs_1, bs_2 = create_boson_samplers()
-
         train_dataset, _, train_loader, _ = create_datasets()
 
-        n_qubit, nw_list_normal = calculate_qubits()
+        classical_model = CNNModel(use_weight_sharing=False)
+
+        n_qubit, nw_list_normal = calculate_qubits(classical_model)
+        bs = create_boson_samplers(nw_list_normal)
 
         qt_model = PhotonicQuantumTrain(n_qubit, bond_dim=bd).to(device)
 
@@ -85,10 +87,10 @@ def run_bond_dimension_exp(
 
         qt_model, _, loss_list_epoch, acc_list_epoch = train_quantum_model(
             qt_model,
+            classical_model,
             train_loader,
             train_loader_qnn,
-            bs_1,
-            bs_2,
+            bs,
             n_qubit,
             nw_list_normal,
             num_training_rounds=num_training_rounds,

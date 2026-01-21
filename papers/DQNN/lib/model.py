@@ -7,7 +7,6 @@ helpers used by the experiment runners.
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 import numpy as np
@@ -17,13 +16,15 @@ import os
 from scipy.optimize import minimize
 from papers.DQNN.lib.photonic_qt_utils import (
     generate_qubit_states_torch,
-    probs_to_weights,
 )
+from papers.DQNN.lib.classical_utils import build_parameter_dict
 from papers.DQNN.lib.boson_sampler import BosonSampler
 from typing import List, Tuple
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "TorchMPS"))
 from papers.DQNN.lib.TorchMPS.torchmps import MPS
+
+from torch.func import functional_call
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -58,8 +59,7 @@ class PhotonicQuantumTrain(nn.Module):
 
     def extract_parameters(
         self,
-        bs_1: BosonSampler,
-        bs_2: BosonSampler,
+        bs: List[BosonSampler],
         n_qubit: int,
         nw_list_normal: List[float],
     ):
@@ -68,10 +68,8 @@ class PhotonicQuantumTrain(nn.Module):
 
         Parameters
         ----------
-        bs_1 : BosonSampler
-            First boson sampler providing a quantum layer.
-        bs_2 : BosonSampler
-            Second boson sampler providing a quantum layer.
+        bs : List[BosonSampler]
+            The list of BosonSamplers composing the quantum layer.
         n_qubit : int
             Number of qubits used to generate the quantum states.
         nw_list_normal : List[float]
@@ -82,17 +80,18 @@ class PhotonicQuantumTrain(nn.Module):
         dict
             State dict reshaped to match the CNN template.
         """
-        from papers.DQNN.lib.classical_utils import CNNModel
 
         # Generate the probabilities from the quantum layers
-        probs_1 = bs_1.quantum_layer()
-        probs_2 = bs_2.quantum_layer()
-        probs_ = (
-            torch.outer(probs_1, probs_2)
-            .flatten()
-            .reshape(bs_1.embedding_size * bs_2.embedding_size, 1)
-        )
-        # Get the necessary probabilities
+        probs_ = bs[0].quantum_layer()
+        new_size = bs[0].embedding_size
+        for i in range(1, len(bs)):
+            new_size *= bs[i].embedding_size
+            probs_ = (
+                torch.outer(probs_, bs[i].quantum_layer())
+                .flatten()
+                .reshape(new_size, 1)
+            )
+            # Get the necessary probabilities
         probs_ = probs_[: len(nw_list_normal)]
         probs_ = probs_.reshape(len(nw_list_normal), 1)
 
@@ -113,16 +112,15 @@ class PhotonicQuantumTrain(nn.Module):
         )
 
         # Always use standard CNN architecture for quantum training regardless of classical training method
-        model_template = CNNModel(use_weight_sharing=False, shared_rows=10)
-        return probs_to_weights(prob_val_post_processed, model_template)
+        return prob_val_post_processed
 
     def forward(
         self,
         x: torch.Tensor,
-        bs_1: BosonSampler,
-        bs_2: BosonSampler,
+        bs: List[BosonSampler],
         n_qubit: int,
         nw_list_normal: List[float],
+        classical_model: nn.Module,
     ) -> torch.Tensor:
         """
         Run the forward pass by mapping quantum probabilities to CNN weights.
@@ -131,49 +129,38 @@ class PhotonicQuantumTrain(nn.Module):
         ----------
         x : torch.Tensor
             Input images tensor.
-        bs_1 : BosonSampler
-            First boson sampler providing a quantum layer.
-        bs_2 : BosonSampler
-            Second boson sampler providing a quantum layer.
+        bs : List[BosonSampler]
+            The list of BosonSamplers composing the quantum layer.
         n_qubit : int
             Number of qubits used to generate the quantum states.
         nw_list_normal : List[float]
             Indices of network weights to keep from the generated probabilities.
+        classical_model: nn.Module
+            The classical model whose parameters we want to optimize.
 
         Returns
         -------
         torch.Tensor
             Model logits for classification.
         """
-        state_dict = self.extract_parameters(bs_1, bs_2, n_qubit, nw_list_normal)
-        dtype = torch.float32
+        params = self.extract_parameters(bs, n_qubit, nw_list_normal)
 
-        # CNN to classify MNIST
-        conv1_weight = state_dict["conv1.weight"].to(device).type(dtype)
-        conv1_bias = state_dict["conv1.bias"].to(device).type(dtype)
-        conv2_weight = state_dict["conv2.weight"].to(device).type(dtype)
-        conv2_bias = state_dict["conv2.bias"].to(device).type(dtype)
-        fc1_weight = state_dict["fc1.weight"].to(device).type(dtype)
-        fc1_bias = state_dict["fc1.bias"].to(device).type(dtype)
-        fc2_weight = state_dict["fc2.weight"].to(device).type(dtype)
-        fc2_bias = state_dict["fc2.bias"].to(device).type(dtype)
+        param_dict = build_parameter_dict(params, classical_model)
+        output = functional_call(classical_model, param_dict, (x,))
+        return output
 
-        x = F.conv2d(x, conv1_weight, conv1_bias, stride=1)
-        x = F.max_pool2d(x, kernel_size=2, stride=2)
-        x = F.conv2d(x, conv2_weight, conv2_bias, stride=1)
-        x = F.max_pool2d(x, kernel_size=2, stride=2)
-        x = x.view(x.size(0), -1)
-        x = F.linear(x, fc1_weight, fc1_bias)
-        x = F.linear(x, fc2_weight, fc2_bias)
-        return x
+        # params = self.extract_parameters(bs, n_qubit, nw_list_normal)
+        # params.to(torch.float32)
+        # assign_parameters(params, classical_model)
+        # return classical_model(x)
 
 
 def train_quantum_model(
     qt_model: PhotonicQuantumTrain,
+    classical_model: nn.Module,
     train_loader: DataLoader,
     train_loader_qnn: DataLoader,
-    bs_1: BosonSampler,
-    bs_2: BosonSampler,
+    bs: List[BosonSampler],
     n_qubit: int,
     nw_list_normal: List[float],
     num_training_rounds: int,
@@ -188,14 +175,14 @@ def train_quantum_model(
     ----------
     qt_model : PhotonicQuantumTrain
         Model to train.
+    classical_model: nn.Module
+        The classical model whose parameters we want to optimize.
     train_loader : DataLoader
         Loader for standard training batches.
     train_loader_qnn : DataLoader
         Loader for QNN parameter training batches.
-    bs_1 : BosonSampler
-        First boson sampler providing a quantum layer.
-    bs_2 : BosonSampler
-        Second boson sampler providing a quantum layer.
+    bs : List[BosonSampler]
+        The list of BosonSamplers composing the quantum layer.
     n_qubit : int
         Number of qubits used to generate the quantum states.
     nw_list_normal : List[float]
@@ -219,7 +206,7 @@ def train_quantum_model(
     q_delta = 2 * np.pi
 
     init_qnn_parameters = q_delta * np.random.rand(
-        bs_1.num_effective_params + bs_2.num_effective_params
+        np.sum([i.num_effective_params for i in bs])
     )
     print(f"\n ---- QNN parameters of shape {init_qnn_parameters.shape} \n ----")
 
@@ -228,8 +215,9 @@ def train_quantum_model(
     criterion = nn.CrossEntropyLoss()
     optimizer_mapping = optim.Adam(qt_model.parameters(), lr=step)
     if not qu_train_with_cobyla:
-        optimizer_1 = optim.Adam(bs_1.quantum_layer.parameters(), lr=step)
-        optimizer_2 = optim.Adam(bs_2.quantum_layer.parameters(), lr=step)
+        optimizers = []
+        for i in bs:
+            optimizers.append(optim.Adam(i.quantum_layer.parameters(), lr=step))
 
     num_trainable_params = sum(
         p.numel() for p in qt_model.parameters() if p.requires_grad
@@ -237,11 +225,11 @@ def train_quantum_model(
     print("# of trainable parameter in Mapping model: ", num_trainable_params)
     print(
         "# of trainable parameter in QNN model: ",
-        bs_1.num_effective_params + bs_2.num_effective_params,
+        len(init_qnn_parameters),
     )
     print(
         "# of trainable parameter in full model: ",
-        num_trainable_params + bs_1.num_effective_params + bs_2.num_effective_params,
+        num_trainable_params + len(init_qnn_parameters),
     )
 
     loss_list = []
@@ -269,10 +257,10 @@ def train_quantum_model(
                 optimizer_mapping.zero_grad()
                 outputs = qt_model(
                     images,
-                    bs_1=bs_1,
-                    bs_2=bs_2,
+                    bs=bs,
                     n_qubit=n_qubit,
                     nw_list_normal=nw_list_normal,
+                    classical_model=classical_model,
                 )
                 # labels_one_hot = F.one_hot(labels, num_classes=10).float()
                 _, predicted = torch.max(outputs.data, 1)
@@ -314,15 +302,21 @@ def train_quantum_model(
 
                 images_gpu, labels_gpu = images.to(device), labels.to(device)
 
-                bs_1.set_params(qnn_parameters_[: bs_1.num_effective_params])
-                bs_2.set_params(qnn_parameters_[bs_1.num_effective_params :])
+                param_index = 0
+                for i in bs:
+                    i.set_params(
+                        qnn_parameters_[
+                            param_index : param_index + i.num_effective_params
+                        ]
+                    )
+                    param_index += i.num_effective_params
 
                 outputs = qt_model(
                     images_gpu,
-                    bs_1=bs_1,
-                    bs_2=bs_2,
+                    bs=bs,
                     n_qubit=n_qubit,
                     nw_list_normal=nw_list_normal,
+                    classical_model=classical_model,
                 )
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels_gpu.size(0)
@@ -348,8 +342,12 @@ def train_quantum_model(
                 options={"maxiter": num_qnn_train_step, "adaptive": True},
             )
             qnn_parameters = result.x
-            bs_1.set_params(qnn_parameters[: bs_1.num_effective_params])
-            bs_2.set_params(qnn_parameters[bs_1.num_effective_params :])
+            param_index = 0
+            for i in bs:
+                i.set_params(
+                    qnn_parameters[param_index : param_index + i.num_effective_params]
+                )
+                param_index += i.num_effective_params
 
             # Update epoch metrics with final values
             epoch_loss = result.fun
@@ -358,10 +356,10 @@ def train_quantum_model(
             with torch.no_grad():
                 outputs = qt_model(
                     images_gpu,
-                    bs_1=bs_1,
-                    bs_2=bs_2,
+                    bs=bs,
                     n_qubit=n_qubit,
                     nw_list_normal=nw_list_normal,
+                    classical_model=classical_model,
                 )
                 _, predicted = torch.max(outputs.data, 1)
                 correct = (predicted == labels_gpu).sum().item()
@@ -373,8 +371,8 @@ def train_quantum_model(
 
         else:
             for train_s in range(num_qnn_train_step):
-                bs_1.quantum_layer.train()
-                bs_2.quantum_layer.train()
+                for i in bs:
+                    i.quantum_layer.train()
 
                 for i, (images, labels) in enumerate(train_loader_qnn):
                     correct = 0
@@ -382,15 +380,15 @@ def train_quantum_model(
                     since_batch = time.time()
 
                     images, labels = images.to(device), labels.to(device)
-                    optimizer_1.zero_grad()
-                    optimizer_2.zero_grad()
+                    for optimizer in optimizers:
+                        optimizer.zero_grad()
 
                     outputs = qt_model(
                         images,
-                        bs_1=bs_1,
-                        bs_2=bs_2,
+                        bs=bs,
                         n_qubit=n_qubit,
                         nw_list_normal=nw_list_normal,
+                        classical_model=classical_model,
                     )
                     # labels_one_hot = F.one_hot(labels, num_classes=10).float()
                     _, predicted = torch.max(outputs.data, 1)
@@ -407,8 +405,8 @@ def train_quantum_model(
                         acc_best = acc
 
                     loss.backward()
-                    optimizer_1.step()
-                    optimizer_2.step()
+                    for optimizer in optimizers:
+                        optimizer.step()
 
                     if ((i + 1) * 4) % len(train_loader_qnn) == 0:
                         print(
@@ -423,10 +421,10 @@ def train_quantum_model(
 
 def evaluate_model(
     qt_model: PhotonicQuantumTrain,
+    classical_model: nn.Module,
     train_loader: DataLoader,
     val_loader: DataLoader,
-    bs_1: BosonSampler,
-    bs_2: BosonSampler,
+    bs: List[BosonSampler],
     n_qubit: int,
     nw_list_normal: List[float],
     qnn_parameters: List[float] = None,
@@ -438,14 +436,14 @@ def evaluate_model(
     ----------
     qt_model : PhotonicQuantumTrain
         Trained model to evaluate.
+    classical_model: nn.Module
+        The classical model whose parameters we want to optimize.
     train_loader : DataLoader
         Loader for the training set.
     val_loader : DataLoader
         Loader for the validation set.
-    bs_1 : BosonSampler
-        First boson sampler providing a quantum layer.
-    bs_2 : BosonSampler
-        Second boson sampler providing a quantum layer.
+    bs : List[BosonSampler]
+        The list of BosonSamplers composing the quantum layer.
     n_qubit : int
         Number of qubits used to generate the quantum states.
     nw_list_normal : List[float]
@@ -461,13 +459,16 @@ def evaluate_model(
     """
     if qnn_parameters is not None:
         original_params = []
-        for i in bs_1.quantum_layer.parameters():
-            original_params.extend(i.detach().cpu().flatten().tolist())
-        for i in bs_2.quantum_layer.parameters():
-            original_params.extend(i.detach().cpu().flatten().tolist())
+        for i in bs:
+            for param in i.quantum_layer.parameters():
+                original_params.extend(param.detach().cpu().flatten().tolist())
 
-        bs_1.set_params(qnn_parameters[: bs_1.num_effective_params])
-        bs_2.set_params(qnn_parameters[bs_1.num_effective_params :])
+        param_index = 0
+        for i in bs:
+            i.set_params(
+                qnn_parameters[param_index : param_index + i.num_effective_params]
+            )
+            param_index += i.num_effective_params
 
     criterion = nn.CrossEntropyLoss()
 
@@ -478,7 +479,13 @@ def evaluate_model(
     with torch.no_grad():
         for images, labels in train_loader:
             images, labels = images.to(device), labels.to(device)
-            outputs = qt_model(images, bs_1, bs_2, n_qubit, nw_list_normal)
+            outputs = qt_model(
+                images,
+                bs=bs,
+                n_qubit=n_qubit,
+                nw_list_normal=nw_list_normal,
+                classical_model=classical_model,
+            )
             loss_train = criterion(outputs, labels).cpu().detach().numpy()
             loss_train_list.append(loss_train)
             _, predicted = torch.max(outputs.data, 1)
@@ -499,7 +506,13 @@ def evaluate_model(
     with torch.no_grad():
         for images, labels in val_loader:
             images, labels = images.to(device), labels.to(device)
-            outputs = qt_model(images, bs_1, bs_2, n_qubit, nw_list_normal)
+            outputs = qt_model(
+                images,
+                bs=bs,
+                n_qubit=n_qubit,
+                nw_list_normal=nw_list_normal,
+                classical_model=classical_model,
+            )
             loss_test = criterion(outputs, labels).cpu().detach().numpy()
             loss_test_list.append(loss_test)
             _, predicted = torch.max(outputs.data, 1)
@@ -515,8 +528,12 @@ def evaluate_model(
     print("Generalization error:", gen_error)
 
     if qnn_parameters is not None:
-        bs_1.set_params(original_params[: bs_1.num_effective_params])
-        bs_2.set_params(original_params[bs_1.num_effective_params :])
+        param_index = 0
+        for i in bs:
+            i.set_params(
+                original_params[param_index : param_index + i.num_effective_params]
+            )
+            param_index += i.num_effective_params
 
     return (
         acc_test,

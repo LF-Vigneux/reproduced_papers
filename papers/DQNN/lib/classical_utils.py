@@ -67,6 +67,11 @@ class SharedWeightFC(nn.Module):
         weight_matrix = self.shared_weights.repeat(
             self.out_features // self.shared_rows, 1
         )
+        for i in range(self.out_features % self.shared_rows):
+            weight_matrix = torch.cat(
+                [weight_matrix, self.shared_weights[i].unsqueeze(0)],
+                dim=0,
+            )
         return torch.matmul(x, weight_matrix.t()) + self.bias
 
 
@@ -226,19 +231,20 @@ class MaskedAdam(torch.optim.Adam):
 
 
 def train_classical_cnn(
+    model: nn.Module,
     train_loader: DataLoader,
     val_loader: DataLoader,
     num_epochs: int,
     use_pruning: bool = False,
     pruning_amount: float = 0.5,
-    use_weight_sharing: bool = False,
-    shared_rows: int = 10,
-) -> CNNModel:
+) -> nn.Module:
     """
     Train a classical CNN baseline and evaluate on validation data.
 
     Parameters
     ----------
+    model: nn.Module
+        The classical model whose parameters we want to optimize.
     train_loader : torch.utils.data.DataLoader
         Training data loader.
     val_loader : torch.utils.data.DataLoader
@@ -249,10 +255,6 @@ def train_classical_cnn(
         Whether to apply structured pruning. Default is False.
     pruning_amount : float, optional
         Fraction of weights to prune if pruning is enabled. Default is 0.5.
-    use_weight_sharing : bool, optional
-        Whether to use shared weights in the first FC layer. Default is False.
-    shared_rows : int, optional
-        Number of shared rows when using weight sharing. Default is 10.
 
     Returns
     -------
@@ -260,8 +262,6 @@ def train_classical_cnn(
         Trained CNN model.
     """
     learning_rate = 1e-3
-
-    model = CNNModel(use_weight_sharing=use_weight_sharing, shared_rows=shared_rows)
 
     if use_pruning:
         apply_pruning(model, amount=pruning_amount)
@@ -318,12 +318,12 @@ def evaluate_classical_model(
     val_loader: DataLoader,
 ):
     """
-    Evaluate the ablation model on a validation loader.
+    Evaluate the model on a validation loader.
 
     Parameters
     ----------
     model : torch.nn.Module
-        Ablation model to evaluate.
+        model to evaluate.
     val_loader : DataLoader
         Validation data loader.
 
@@ -356,3 +356,49 @@ def evaluate_classical_model(
         100 * correct / total,
         np.mean(loss_test_list, dtype=float),
     )
+
+
+# def assign_parameters(params: torch.Tensor, classical_model: nn.Module) -> nn.Module:
+#     index = 0
+#     for p in classical_model.parameters():
+#         n = p.numel()
+#         to_assign = params[index : index + n].reshape_as(p)
+#         p.copy_(to_assign)
+#         index += n
+
+
+def build_parameter_dict(
+    params: torch.Tensor, classical_model: nn.Module
+) -> dict[str, torch.Tensor]:
+    """
+    Build a parameter mapping for functional calls without mutating the model.
+
+    Parameters
+    ----------
+    params : torch.Tensor
+        Flattened parameter vector produced by the quantum model.
+    classical_model : torch.nn.Module
+        Target model whose parameter shapes define the mapping.
+
+    Returns
+    -------
+    dict[str, torch.Tensor]
+        Mapping of parameter names to tensors for functional_call.
+    """
+    params = params.reshape(-1)
+    total_needed = sum(p.numel() for p in classical_model.parameters())
+    if params.numel() < total_needed:
+        raise ValueError(
+            f"Not enough parameters for classical model: need {total_needed}, got {params.numel()}."
+        )
+    if params.numel() > total_needed:
+        params = params[:total_needed]
+
+    param_dict = {}
+    index = 0
+    for name, p in classical_model.named_parameters():
+        n = p.numel()
+        param_dict[name] = params[index : index + n].reshape_as(p)
+        index += n
+
+    return param_dict

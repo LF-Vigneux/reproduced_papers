@@ -13,28 +13,31 @@ sys.path.insert(0, str(REPO_ROOT))
 
 import os
 import time
+from math import comb
 import torch.nn as nn
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 from typing import List
 import torch.optim as optim
 import json
 from papers.DQNN.lib.photonic_qt_utils import (
     create_boson_samplers,
     calculate_qubits,
-    probs_to_weights,
     generate_qubit_states_torch,
 )
-from papers.DQNN.lib.classical_utils import evaluate_classical_model
+from papers.DQNN.lib.classical_utils import (
+    evaluate_classical_model,
+    CNNModel,
+    build_parameter_dict,
+)
 from papers.DQNN.lib.model import (
     PhotonicQuantumTrain,
     train_quantum_model,
     evaluate_model,
 )
+from torch.func import functional_call
 from papers.DQNN.lib.boson_sampler import BosonSampler
 from papers.DQNN.utils.utils import plot_ablation_exp, create_datasets
-import torch.nn.functional as F
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "TorchMPS"))
 from papers.DQNN.lib.TorchMPS.torchmps import MPS
@@ -42,7 +45,9 @@ from papers.DQNN.lib.TorchMPS.torchmps import MPS
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
 
-def create_ablation_class(bond, bs: List[BosonSampler] = None):
+def create_ablation_class(
+    bond, bs: List[BosonSampler] = None, classical_model: nn.Module = CNNModel()
+):
     """
     Create an lone MPS model for the experiment.
 
@@ -53,17 +58,25 @@ def create_ablation_class(bond, bs: List[BosonSampler] = None):
     -----------
     bond : int
         The bond dimension for the MPS in the ablation module.
+    bs: List[BosonSampler]
+        Boson sampler to use untrained in the ablation Model. If None, just used a randomized tensor
+        Default is 1.
+    classical_model: nn.Module
+        The classical model whose parameters we want to optimize. Default is CNNModel().
 
     Returns
     --------
     tuple
         A tuple containing the ablation model (AblationModule)
     """
-
-    n_qubit, nw_list_normal = calculate_qubits()
+    n_qubit, nw_list_normal = calculate_qubits(classical_model)
+    bs = create_boson_samplers(nw_list_normal)
+    num_params = 1
+    for i in bs:
+        num_params *= comb(i.m, i.n)
 
     random_tensor = torch.randn(
-        126 * 70, 1
+        num_params, 1
     )  # TODO FOr generalization, change to arbitrary size, here is the number of combinations of each BS (4 in 9) and (4 in 8)
 
     class AblationModule(nn.Module):
@@ -81,7 +94,7 @@ def create_ablation_class(bond, bs: List[BosonSampler] = None):
                 input_dim=n_qubit + 1, output_dim=1, bond_dim=bond
             )
 
-        def forward(self, x):
+        def forward(self, x, classical_model_: nn.Module):
             """
             Forward pass through the ablation module.
 
@@ -92,25 +105,28 @@ def create_ablation_class(bond, bs: List[BosonSampler] = None):
             -----------
             x : torch.Tensor
                 Input tensor of shape (batch_size, 1, 28, 28).
+            classical_model: nn.Module
+                The classical model whose parameters we want to optimize. Default is CNNModel().
 
             Returns
             --------
             torch.Tensor
                 Output tensor of shape (batch_size, 10).
             """
-            from papers.DQNN.lib.classical_utils import CNNModel
 
             with torch.no_grad():
                 if bs is None:
                     probs_ = random_tensor
                 else:
-                    probs_1 = bs[0].quantum_layer()
-                    probs_2 = bs[1].quantum_layer()
-                    probs_ = (
-                        torch.outer(probs_1, probs_2)
-                        .flatten()
-                        .reshape(bs[0].embedding_size * bs[1].embedding_size, 1)
-                    )
+                    probs_ = bs[0].quantum_layer()
+                    new_size = bs[0].embedding_size
+                    for i in range(1, len(bs)):
+                        new_size *= bs[i].embedding_size
+                        probs_ = (
+                            torch.outer(probs_, bs[i].quantum_layer())
+                            .flatten()
+                            .reshape(new_size, 1)
+                        )
 
             probs_ = probs_[: len(nw_list_normal)]
             probs_ = probs_.reshape(len(nw_list_normal), 1)
@@ -132,47 +148,10 @@ def create_ablation_class(bond, bs: List[BosonSampler] = None):
                 prob_val_post_processed - prob_val_post_processed.mean()
             )
 
-            model_template = CNNModel(use_weight_sharing=False, shared_rows=10)
-            state_dict = probs_to_weights(prob_val_post_processed, model_template)
-
             ########
-
-            dtype = torch.float32  # Ensure all tensors are of this type
-
-            # Convolution layer 1 parameters
-            conv1_weight = state_dict["conv1.weight"].to(device).type(dtype)
-            conv1_bias = state_dict["conv1.bias"].to(device).type(dtype)
-
-            # Convolution layer 2 parameters
-            conv2_weight = state_dict["conv2.weight"].to(device).type(dtype)
-            conv2_bias = state_dict["conv2.bias"].to(device).type(dtype)
-
-            # Fully connected layer 1 parameters
-            fc1_weight = state_dict["fc1.weight"].to(device).type(dtype)
-            fc1_bias = state_dict["fc1.bias"].to(device).type(dtype)
-
-            # Fully connected layer 2 parameters
-            fc2_weight = state_dict["fc2.weight"].to(device).type(dtype)
-            fc2_bias = state_dict["fc2.bias"].to(device).type(dtype)
-
-            # Convolution 1
-            x = F.conv2d(x, conv1_weight, conv1_bias, stride=1)
-            x = F.max_pool2d(x, kernel_size=2, stride=2)
-
-            # Convolution 2
-            x = F.conv2d(x, conv2_weight, conv2_bias, stride=1)
-            x = F.max_pool2d(x, kernel_size=2, stride=2)
-
-            # Flatten
-            x = x.view(x.size(0), -1)
-
-            # Fully connected 1
-            x = F.linear(x, fc1_weight, fc1_bias)
-
-            # Fully connected 2
-            x = F.linear(x, fc2_weight, fc2_bias)
-
-            return x
+            param_dict = build_parameter_dict(prob_val_post_processed, classical_model_)
+            output = functional_call(classical_model_, param_dict, (x,))
+            return output
 
     return AblationModule().to(device)
 
@@ -230,12 +209,15 @@ def run_ablation_exp(
 
     for bond in bond_dimensions_to_test:
         ### QTrain
-        bs_1, bs_2 = create_boson_samplers()
-        n_qubit, nw_list_normal = calculate_qubits()
+        classical_model = CNNModel()
+        n_qubit, nw_list_normal = calculate_qubits(classical_model)
+        bs = create_boson_samplers(nw_list_normal)
         qt_model = PhotonicQuantumTrain(n_qubit, bond_dim=bond).to(device)
 
         ### Ablation
-        ablation_model = create_ablation_class(bond=bond, bs=[bs_1, bs_2])
+        ablation_model = create_ablation_class(
+            bond=bond, bs=bs, classical_model=CNNModel()
+        )
 
         params_ablation.append(
             sum(p.numel() for p in ablation_model.parameters() if p.requires_grad)
@@ -269,7 +251,7 @@ def run_ablation_exp(
                     )  # Move data to GPU
                     optimizer.zero_grad()
                     # Forward pass
-                    outputs = ablation_model(images)
+                    outputs = ablation_model(images, classical_model)
                     _, predicted = torch.max(outputs.data, 1)
                     total += labels.size(0)
                     correct += (predicted == labels).sum().item()
@@ -294,17 +276,17 @@ def run_ablation_exp(
 
                 train_loss /= len(train_loader)
 
-        acc_ab, loss_ab = evaluate_classical_model(ablation_model, val_loader)
+        acc_ab, loss_ab = evaluate_classical_model(classical_model, val_loader)
 
         ################################################################################################################################
         print("QTrain")
 
         qt_model, qnn_parameters_qt, _, _ = train_quantum_model(
             qt_model,
+            classical_model,
             train_loader,
             train_loader,
-            bs_1,
-            bs_2,
+            bs,
             n_qubit,
             nw_list_normal,
             num_training_rounds=num_training_rounds,
@@ -315,10 +297,10 @@ def run_ablation_exp(
 
         accuracy_test, loss_test, _ = evaluate_model(
             qt_model,
+            classical_model,
             train_loader,
             val_loader,
-            bs_1,
-            bs_2,
+            bs,
             n_qubit,
             nw_list_normal,
             qnn_parameters_qt,
@@ -330,9 +312,7 @@ def run_ablation_exp(
 
         # Save results
         params_qt.append(
-            num_trainable_params_qt
-            + bs_1.num_effective_params
-            + bs_2.num_effective_params
+            num_trainable_params_qt + np.sum([i.num_effective_params for i in bs])
         )
         loss_qt.append(loss_test)
         accuracy_qt.append(accuracy_test)

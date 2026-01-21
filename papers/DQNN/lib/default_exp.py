@@ -8,7 +8,6 @@ photonic quantum train model using the specified hyperparameters.
 import torch
 from torch.utils.data import DataLoader
 import sys
-import os
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -26,9 +25,7 @@ from papers.DQNN.lib.model import (
     train_quantum_model,
     evaluate_model,
 )
-from papers.DQNN.lib.classical_utils import (
-    train_classical_cnn,
-)
+from papers.DQNN.lib.classical_utils import train_classical_cnn, CNNModel
 from papers.DQNN.utils.utils import plot_training_metrics, create_datasets
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -92,21 +89,22 @@ def run_default_exp(
         f"  Weight sharing: {weight_sharing} (shared rows: {shared_rows if weight_sharing else 'N/A'})"
     )
 
-    bs_1, bs_2 = create_boson_samplers()
+    model = CNNModel(use_weight_sharing=weight_sharing, shared_rows=shared_rows)
 
     train_dataset, _, train_loader, val_loader = create_datasets()
 
     _ = train_classical_cnn(
+        model,
         train_loader,
         val_loader,
         classical_epochs,
         use_pruning=pruning,
         pruning_amount=pruning_amount,
-        use_weight_sharing=weight_sharing,
-        shared_rows=shared_rows,
     )
 
-    n_qubit, nw_list_normal = calculate_qubits()
+    classical_model = CNNModel(use_weight_sharing=False)
+    n_qubit, nw_list_normal = calculate_qubits(classical_model)
+    bs = create_boson_samplers(nw_list_normal)
 
     qt_model = PhotonicQuantumTrain(n_qubit, bond_dim=bond_dim).to(device)
 
@@ -115,10 +113,10 @@ def run_default_exp(
 
     qt_model, _, loss_list_epoch, acc_list_epoch = train_quantum_model(
         qt_model,
+        classical_model,
         train_loader,
         train_loader_qnn,
-        bs_1,
-        bs_2,
+        bs,
         n_qubit,
         nw_list_normal,
         num_training_rounds,
@@ -129,10 +127,10 @@ def run_default_exp(
 
     evaluate_model(
         qt_model,
+        classical_model,
         train_loader,
         val_loader,
-        bs_1,
-        bs_2,
+        bs,
         n_qubit,
         nw_list_normal,
     )

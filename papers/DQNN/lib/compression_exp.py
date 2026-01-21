@@ -28,6 +28,7 @@ from papers.DQNN.lib.model import (
 from papers.DQNN.lib.classical_utils import (
     train_classical_cnn,
     evaluate_classical_model,
+    CNNModel,
 )
 from papers.DQNN.utils.utils import create_datasets, plot_compression_exp
 
@@ -47,6 +48,39 @@ def run_compression_exp(
     generate_graph: bool = True,
     run_dir: Path = None,
 ):
+    """
+    Run compression experiments across bond dimensions and baselines.
+
+    This compares the quantum train model against classical weight sharing and
+    pruning baselines while tracking accuracy, parameter counts, and QTrain
+    generalization error.
+
+    Parameters
+    ----------
+    bond_dimensions_to_test : List[int], optional
+        Bond dimensions (or shared rows for weight sharing) to evaluate.
+        Default is np.arange(2, 17).
+    num_training_rounds : int, optional
+        Number of quantum training rounds. Default is 2.
+    classical_epochs : int, optional
+        Number of epochs for the classical baselines. Default is 50.
+    num_epochs : int, optional
+        Number of epochs per quantum training round for the mapping network.
+        Default is 5.
+    qu_train_with_cobyla : bool, optional
+        Whether to use COBYLA for QNN optimization. Default is False.
+    num_qnn_train_step : int, optional
+        Number of QNN training steps per round. Default is 12.
+    generate_graph : bool, optional
+        Whether to generate the compression plot. Default is True.
+    run_dir : pathlib.Path, optional
+        Output directory for the plot when running via the shared runtime.
+        If None, the plot is saved under the local results folder.
+
+    Returns
+    -------
+    None
+    """
 
     current_dir = str(Path(__file__).parent.parent.resolve()) + "/results/"
 
@@ -66,15 +100,16 @@ def run_compression_exp(
             "---------------------------------------------------------------------------------"
         )
         print("QTrain")
-        bs_1, bs_2 = create_boson_samplers()
-        n_qubit, nw_list_normal = calculate_qubits()
+        classical_model = CNNModel()
+        n_qubit, nw_list_normal = calculate_qubits(classical_model)
+        bs = create_boson_samplers(nw_list_normal)
         qt_model = PhotonicQuantumTrain(n_qubit, bond_dim=bond).to(device)
         qt_model, qnn_parameters, _, _ = train_quantum_model(
             qt_model,
+            classical_model,
             train_loader,
             train_loader,
-            bs_1,
-            bs_2,
+            bs,
             n_qubit,
             nw_list_normal,
             num_training_rounds=num_training_rounds,
@@ -88,10 +123,10 @@ def run_compression_exp(
         params_qt.append(num_trainable_params_qt)
         acc_qt, _, gen_error = evaluate_model(
             qt_model,
+            classical_model,
             train_loader,
             val_loader,
-            bs_1,
-            bs_2,
+            bs,
             n_qubit,
             nw_list_normal,
             qnn_parameters,
@@ -132,8 +167,9 @@ def run_compression_exp(
             use_pruning=True,
             pruning_amount=pruning_iterator / len(bond_dimensions_to_test) * 0.7,
         )
-        num_trainable_params_prun = sum(
-            p.numel() for p in prun_model.parameters() if p.requires_grad
+        num_trainable_params_prun = int(
+            (1 - (pruning_iterator / len(bond_dimensions_to_test) * 0.7))
+            * sum(p.numel() for p in prun_model.parameters() if p.requires_grad)
         )
         params_prun.append(num_trainable_params_prun)
         acc_prun, _ = evaluate_classical_model(prun_model, val_loader)
