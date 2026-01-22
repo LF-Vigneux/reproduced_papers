@@ -11,7 +11,7 @@ Distributed Photonic Quantum Computing (2025)
 ## Overview
 
 ### 🎯 Main goal 
->Classify the reduced MNIST dataset still containing the full 10 digits.
+>Classify the reduced MNIST dataset still containing the full 10 digits while reducing the number of parameters to train.
 
 ### Main result
 
@@ -85,7 +85,7 @@ Source: K.-C. Chen, C.-Y. Liu, Y. Shang, F. Burt, and K. K. Leung, “Distribute
 Source: K.-C. Chen, C.-Y. Liu, Y. Shang, F. Burt, and K. K. Leung, “Distributed Quantum Neural Networks on Distributed Photonic Quantum Computing,” May 13, 2025, arXiv: arXiv:2505.08474. doi: 10.48550/arXiv.2505.08474.
 
 >Here they replaced the quantum layer with a random weight generator as input to the MPS.
->>Although, after multiple relectures and discussions, at every training round, a new random vector is generated making the previous graph not a real ablation analysis since the MPS can not be trained with constantly changing completely random inputs.
+>>Although, we observed that a new random vector is generated making the previous graph not a real ablation analysis since the MPS can not be trained with constantly changing completely random inputs.
 
 ### Our results
 
@@ -94,13 +94,13 @@ Our results are pretty similar to the ones observed in the paper after only one 
 
 ![](results/bond_dimension_graph_long_exp.png)
 
-Here only 100 iterations of training of 5 classical and quantum epochs per iteration were used. By each of those quantum epochs 30 steps of the ADAM optimizer were done. We obtain the same tendencies in a way shorter experimentation time. The bond dimension of 1 seems to give out worse results but the other ones follow the same standard.
+Here only 100 iterations of training of 5 classical and quantum epochs per iteration were used. By each of those quantum epochs 30 steps of the ADAM optimizer were done. We obtain the same tendencies in a shorter experimentation time due ti the optimization of the backend of Merlin and its use of autograd. The bond dimension of 1 seems to give out worse results but the other ones follow the same standard.
 
 #### Ablation analysis
 
 ![](results/ablation_graph_with_train.png)
 
-We observed a big difference in our ablation analysis. Indeed as said before the ablation study was not done correctly. Here we generated one random vector per experience (it is the same for each epoch). we observe that MPS may be actually doing all of the work. We are basically obtaining the same results per number of parameter while using or not the boson sampler. The usefulness of quantum in this model is here questioned…
+We observed a major difference in our ablation analysis. Indeed as said before the ablation study was not done correctly. Here we generated one random vector per experience (it is the same for each epoch). we observe that MPS may be actually doing all of the work. We are basically obtaining the same results per number of parameter while using or not the boson sampler. The usefulness of quantum in this model is here questioned…
 
 
 ## How to Run
@@ -145,7 +145,7 @@ python implementation.py --paper DQNN --config configs/defaults.json --num_train
 ## Project structure
 - `papers.DQNN.lib/runner.py` — The file to run for every experiment.
 - `papers.DQNN.lib/` — core papers.DQNN.library modules used by scripts.
-  - `TorchMPS/` — Repository to instanciate a MPS tensor module in Torch.
+  - `torchmps/` — Repository to instanciate a MPS tensor module in Torch.
   - `ablation_exp.py`, `bond_dimension_exp.py`, `default_exp.py`- Files containing the function to run the corresponding experiment.
   - `boson_sampler.py` - The file containg the class managing the quantum layers.
   - `classical_utils.py`, `photonic_qt_utils.py` - Files containing utility functions.
@@ -191,4 +191,4 @@ Notes:
 - If `pytest` is not installed: `pip install pytest`.
 
 ## Acknowledgments
-We here used the code of the [TorchMPS repository](https://github.com/jemisjoky/TorchMPS).
+We here used the code of the [torchmps repository](https://github.com/jemisjoky/TorchMPS).

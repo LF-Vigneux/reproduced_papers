@@ -14,7 +14,7 @@ import os
 from typing import List, Tuple
 from papers.DQNN.lib.boson_sampler import BosonSampler
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "TorchMPS"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "torchmps"))
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 

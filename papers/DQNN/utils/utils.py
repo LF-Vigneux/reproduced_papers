@@ -532,7 +532,6 @@ def plot_compression_exp(
         label="photonic QT",
     )
 
-    ax2.set_xlim(0, 3500)
     ax2.set_ylim(0, 0.32)
     ax2.set_xlabel("# Trainable Parameters")
     ax2.set_ylabel("Gen. error")
@@ -552,13 +551,13 @@ def plot_compression_exp(
     if run_dir is None:
         plt.savefig(
             str(pathlib.Path(__file__).parent.parent.resolve())
-            + "/results/bond_dimension_graph.pdf",
+            + "/results/compression_exp_graph.pdf",
             format="pdf",
             bbox_inches="tight",
         )
     else:
         plt.savefig(
-            run_dir / "bond_dimension_graph.pdf",
+            run_dir / "compression_exp_graph.pdf",
             format="pdf",
             bbox_inches="tight",
         )

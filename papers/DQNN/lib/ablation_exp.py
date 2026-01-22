@@ -39,8 +39,8 @@ from torch.func import functional_call
 from papers.DQNN.lib.boson_sampler import BosonSampler
 from papers.DQNN.utils.utils import plot_ablation_exp, create_datasets
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "TorchMPS"))
-from papers.DQNN.lib.TorchMPS.torchmps import MPS
+sys.path.append(os.path.join(os.path.dirname(__file__), "torchmps"))
+from papers.DQNN.lib.torchmps.torchmps import MPS
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -118,12 +118,12 @@ def create_ablation_class(
                 if bs is None:
                     probs_ = random_tensor
                 else:
-                    probs_ = bs[0].quantum_layer()
+                    probs_ = torch.flatten(bs[0].quantum_layer())
                     new_size = bs[0].embedding_size
                     for i in range(1, len(bs)):
                         new_size *= bs[i].embedding_size
                         probs_ = (
-                            torch.outer(probs_, bs[i].quantum_layer())
+                            torch.outer(probs_, torch.flatten(bs[i].quantum_layer()))
                             .flatten()
                             .reshape(new_size, 1)
                         )

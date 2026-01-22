@@ -178,8 +178,7 @@ class BosonSampler:
             circuit=circuit,
             input_state=input_state,
             trainable_parameters=parameters,
-            no_bunching=True,
-            output_mapping_strategy=ML.OutputMappingStrategy.NONE,
+            computation_space=ML.ComputationSpace.UNBUNCHED,
         )
 
     def set_params(self, params: torch.Tensor) -> None:

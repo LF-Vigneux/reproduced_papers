@@ -1,6 +1,6 @@
 {
     "description": "Defaults for DQNN experiments.",
-    "outdir": "outdir",
+    "outdir": "results",
     "exp_to_run": "DEFAULT",
     "bond_dim": 7,
     "num_training_rounds": 2,
@@ -9,5 +9,5 @@
     "classical_epochs": 5,
     "pruning_amount": 0.5,
     "shared_rows": 10,
-    "dont_generate_graph":"True"
+    "dont_generate_graph":"False"
 }

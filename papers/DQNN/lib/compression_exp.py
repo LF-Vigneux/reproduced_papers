@@ -32,8 +32,8 @@ from papers.DQNN.lib.classical_utils import (
 )
 from papers.DQNN.utils.utils import create_datasets, plot_compression_exp
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "TorchMPS"))
-from papers.DQNN.lib.TorchMPS.torchmps import MPS
+sys.path.append(os.path.join(os.path.dirname(__file__), "torchmps"))
+from papers.DQNN.lib.torchmps.torchmps import MPS
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
