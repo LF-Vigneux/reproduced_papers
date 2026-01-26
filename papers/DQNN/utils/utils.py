@@ -16,9 +16,55 @@ from pathlib import Path
 from typing import Tuple, List
 from torch.utils.data import DataLoader
 import pathlib
+import os
 
 script_dir = Path(__file__).parent.parent.parent.parent
 DATA_PATH = (script_dir / "data/DQNN").resolve()
+
+
+class MNIST_fashion(Dataset):
+    def __init__(self, data=DATA_PATH, transform=None, split="train"):
+        """
+        Args:
+            data: path to dataset folder which contains train.csv and val.csv
+            transform (callable, optional): Optional transform to be applied
+                on a sample (e.g., data augmentation or normalization)
+            split: 'train' or 'val' to determine which set to download
+        """
+        self.data_dir = data
+        self.transform = transform
+        self.data = []
+
+        if split == "train":
+            filename = os.path.join(self.data_dir, "fashion-mnist_train_formatted.csv")
+        elif split == "val":
+            filename = os.path.join(self.data_dir, "fashion-mnist_test_formatted.csv")
+        else:
+            raise AttributeError(
+                "split!='train' and split!='val': split must be train or val"
+            )
+
+        self.df = pd.read_csv(filename)
+
+    def __len__(self):
+        l = len(self.df["image"])
+        return l
+
+    def __getitem__(self, idx):
+        img = self.df["image"].iloc[idx]
+        label = self.df["label"].iloc[idx]
+        # string to list
+        img_list = re.split(r",", img)
+        # remove '[' and ']'
+        img_list[0] = img_list[0][1:]
+        img_list[-1] = img_list[-1][:-1]
+        # convert to float
+        img_float = [float(el) for el in img_list]
+        # convert to image
+        img_square = torch.unflatten(torch.tensor(img_float), 0, (1, 28, 28))
+        if self.transform is not None:
+            img_square = self.transform(img_square)
+        return img_square, label
 
 
 class HFImageDataset(Dataset):
@@ -65,7 +111,7 @@ class HFImageDataset(Dataset):
 
 
 def create_datasets(
-    batch_size: int = 128,
+    batch_size: int = 128, use_fashion: bool = False
 ) -> Tuple[Dataset, Dataset, DataLoader, DataLoader]:
     """
     Create MNIST train/validation datasets and data loaders.
@@ -79,6 +125,13 @@ def create_datasets(
     Tuple[Dataset, Dataset, DataLoader, DataLoader]
         Train dataset, validation dataset, train loader and validation loader.
     """
+    if use_fashion:
+        train_dataset = MNIST_fashion(split="train")
+        val_dataset = MNIST_fashion(split="val")
+        train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size, shuffle=False)
+        return train_dataset, val_dataset, train_loader, val_loader
+
     train_dataset = HFImageDataset(
         load_dataset("Quandela/PercevalQuest-MNIST", split="train")
     )

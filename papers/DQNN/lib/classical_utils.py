@@ -316,6 +316,7 @@ def train_classical_cnn(
 def evaluate_classical_model(
     model: torch.nn.Module,
     val_loader: DataLoader,
+    classical_model: torch.nn.Module = None,
 ):
     """
     Evaluate the model on a validation loader.
@@ -342,7 +343,10 @@ def evaluate_classical_model(
     with torch.no_grad():
         for images, labels in val_loader:
             images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
+            if classical_model is None:
+                outputs = model(images)
+            else:
+                outputs = model(images, classical_model)
             loss_test = criterion(outputs, labels).cpu().detach().numpy()
             loss_test_list.append(loss_test)
             _, predicted = torch.max(outputs.data, 1)

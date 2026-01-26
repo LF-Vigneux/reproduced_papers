@@ -7,6 +7,8 @@ of the quantum layer in the Quantum Train algorithm.
 
 import sys
 from pathlib import Path
+import perceval as pcvl
+import merlin as ML
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
@@ -46,7 +48,10 @@ device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("
 
 
 def create_ablation_class(
-    bond, bs: List[BosonSampler] = None, classical_model: nn.Module = CNNModel()
+    bond,
+    bs: List[BosonSampler] = None,
+    classical_model: nn.Module = CNNModel(),
+    Haar_matrix_init: bool = False,
 ):
     """
     Create an lone MPS model for the experiment.
@@ -59,10 +64,13 @@ def create_ablation_class(
     bond : int
         The bond dimension for the MPS in the ablation module.
     bs: List[BosonSampler]
-        Boson sampler to use untrained in the ablation Model. If None, just used a randomized tensor
-        Default is 1.
+        Boson sampler to use untrained in the ablation Model. If None, just used a randomized tensor.
+        Default is None.
     classical_model: nn.Module
         The classical model whose parameters we want to optimize. Default is CNNModel().
+    Haar_matrix_init: bool
+        Wether to use a Haar matrix random unitary for the circuit boson samplers. THE BOSON SAMPLER BECOMES UN TRAINABLE IF SO
+        Default is False.
 
     Returns
     --------
@@ -71,9 +79,24 @@ def create_ablation_class(
     """
     n_qubit, nw_list_normal = calculate_qubits(classical_model)
     bs = create_boson_samplers(nw_list_normal)
+
     num_params = 1
     for i in bs:
         num_params *= comb(i.m, i.n)
+        if Haar_matrix_init:
+            input_state = i.m * [0]
+            places = torch.linspace(0, i.m - 1, i.n)
+            for photon in places:
+                input_state[int(photon)] = 1
+            input_state = pcvl.BasicState(input_state)
+            i.quantum_layer = ML.QuantumLayer(
+                input_size=0,
+                n_photons=i.n,
+                circuit=pcvl.Circuit(i.m)
+                // pcvl.Unitary(pcvl.Matrix.random_unitary(i.m)),
+                input_state=input_state,
+                computation_space=ML.ComputationSpace.UNBUNCHED,
+            )
 
     random_tensor = torch.randn(
         num_params, 1
@@ -205,7 +228,7 @@ def run_ablation_exp(
     accuracy_qt = []
     params_qt = []
 
-    _, _, train_loader, val_loader = create_datasets(batch_size=1000)
+    _, _, train_loader, val_loader = create_datasets(batch_size=1000, use_fashion=True)
 
     for bond in bond_dimensions_to_test:
         ### QTrain
@@ -215,8 +238,12 @@ def run_ablation_exp(
         qt_model = PhotonicQuantumTrain(n_qubit, bond_dim=bond).to(device)
 
         ### Ablation
+        # TODO REMOVE THE HAAR MATRIX INIT
+        # ablation_model = create_ablation_class(
+        #     bond=bond, bs=bs, classical_model=CNNModel(), Haar_matrix_init=True
+        # )
         ablation_model = create_ablation_class(
-            bond=bond, bs=bs, classical_model=CNNModel()
+            bond=bond, bs=bs, classical_model=CNNModel(), Haar_matrix_init=False
         )
 
         params_ablation.append(
@@ -276,7 +303,9 @@ def run_ablation_exp(
 
                 train_loss /= len(train_loader)
 
-        acc_ab, loss_ab = evaluate_classical_model(classical_model, val_loader)
+        acc_ab, loss_ab = evaluate_classical_model(
+            ablation_model, val_loader, classical_model=classical_model
+        )
 
         ################################################################################################################################
         print("QTrain")
