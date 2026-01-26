@@ -5,5 +5,10 @@
     "bond_dimensions_to_test": [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16],
     "num_training_rounds": 50,
     "num_epochs": 5,
-    "num_qnn_train_step": 12
+    "num_qnn_train_step": 12,
+    "with_general_interferometer":"False",
+    "groupping":"False",
+    "use_fashion":"False",
+    "use_cifar":"False",
+    "Haar_matrix_init":"False"
 }

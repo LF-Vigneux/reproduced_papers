@@ -85,6 +85,41 @@
       "default": null,
       "apply": {"kind": "config_path", "path": "shared_rows"}
     },
+      {
+      "flags": ["--with_general_interferometer"],
+      "help": "Enable general interferometer boson samplers",
+      "type": "bool",
+      "default": null,
+      "apply": {"kind": "config_path", "path": "with_general_interferometer"}
+    },
+      {
+      "flags": ["--groupping"],
+      "help": "Enable grouping outputs instead of truncation",
+      "type": "bool",
+      "default": null,
+      "apply": {"kind": "config_path", "path": "groupping"}
+    },
+      {
+      "flags": ["--use_fashion"],
+      "help": "Enable the use of the fashion MNIST dataset",
+      "type": "bool",
+      "default": null,
+      "apply": {"kind": "config_path", "path": "use_fashion"}
+    },
+      {
+      "flags": ["--use_cifar"],
+      "help": "Enable the use of the CIFAR dataset",
+      "type": "bool",
+      "default": null,
+      "apply": {"kind": "config_path", "path": "use_fashion"}
+    },
+      {
+      "flags": ["--Haar_matrix_init"],
+      "help": "Enable the haar matrix distribution for init of boson samplers. For the ablation exp only",
+      "type": "bool",
+      "default": null,
+      "apply": {"kind": "config_path", "path": "Haar_matrix_init"}
+    },
     {
       "flags": ["--dont_generate_graph"],
       "help": "Disable weight sharing experiment",

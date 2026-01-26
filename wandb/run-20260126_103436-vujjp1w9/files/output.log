@@ -1,0 +1,29 @@
+Epoch 1 had a loss of 43.6252019405365 and accuracy of 0.1828
+Epoch 2 had a loss of 38.861611127853394 and accuracy of 0.2834
+Epoch 3 had a loss of 35.49585437774658 and accuracy of 0.3468
+Traceback (most recent call last):
+  File "/Users/lfvigneux/Desktop/Unboarding/CIFAR-10.py", line 157, in train
+    logits = self.model(features)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lfvigneux/miniconda3/envs/Quandela_1_test/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lfvigneux/miniconda3/envs/Quandela_1_test/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lfvigneux/miniconda3/envs/Quandela_1_test/lib/python3.12/site-packages/torch/nn/modules/container.py", line 219, in forward
+    input = module(input)
+            ^^^^^^^^^^^^^
+  File "/Users/lfvigneux/miniconda3/envs/Quandela_1_test/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lfvigneux/miniconda3/envs/Quandela_1_test/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lfvigneux/miniconda3/envs/Quandela_1_test/lib/python3.12/site-packages/torch/nn/modules/conv.py", line 458, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lfvigneux/miniconda3/envs/Quandela_1_test/lib/python3.12/site-packages/torch/nn/modules/conv.py", line 454, in _conv_forward
+    return F.conv2d(input, weight, bias, self.stride,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

@@ -14,12 +14,13 @@ import os
 from typing import List, Tuple
 from papers.DQNN.lib.boson_sampler import BosonSampler
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "torchmps"))
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
 
-def create_boson_samplers(nw_list_normal: List[float]) -> BosonSampler:
+def create_boson_samplers(
+    nw_list_normal: List[float], with_general_interferometer: bool = False
+) -> BosonSampler:
     """
     Create the boson samplers used in photonic quantum training.
 
@@ -41,13 +42,23 @@ def create_boson_samplers(nw_list_normal: List[float]) -> BosonSampler:
     )  # 252 is comb(10,5)
 
     for _ in range(num_bs):
-        bs.append(BosonSampler(m=10, n=5))
+        bs.append(
+            BosonSampler(
+                m=10, n=5, with_general_interferometer=with_general_interferometer
+            )
+        )
     num_params_filled = 256**num_bs
     if num_params_filled == nw_list_normal_len:
         return bs
     for i in range(1, 11):
         if num_params_filled * comb(i, i // 2) >= nw_list_normal_len:
-            bs.append(BosonSampler(m=i, n=i // 2))
+            bs.append(
+                BosonSampler(
+                    m=i,
+                    n=i // 2,
+                    with_general_interferometer=with_general_interferometer,
+                )
+            )
             return bs
     raise SyntaxError("Function create_boson_samplers failed")
 

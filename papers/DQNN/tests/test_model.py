@@ -17,8 +17,8 @@ import torch
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "torchmps"))
-from papers.DQNN.lib.torchmps.torchmps import MPS
+
+from papers.DQNN.lib.torchmps import MPS
 
 
 @pytest.fixture

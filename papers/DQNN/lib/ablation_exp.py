@@ -7,13 +7,12 @@ of the quantum layer in the Quantum Train algorithm.
 
 import sys
 from pathlib import Path
-import perceval as pcvl
-import merlin as ML
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
-import os
+import merlin as ML
+import perceval as pcvl
 import time
 from math import comb
 import torch.nn as nn
@@ -30,6 +29,7 @@ from papers.DQNN.lib.photonic_qt_utils import (
 from papers.DQNN.lib.classical_utils import (
     evaluate_classical_model,
     CNNModel,
+    CIFARModel,
     build_parameter_dict,
 )
 from papers.DQNN.lib.model import (
@@ -41,8 +41,8 @@ from torch.func import functional_call
 from papers.DQNN.lib.boson_sampler import BosonSampler
 from papers.DQNN.utils.utils import plot_ablation_exp, create_datasets
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "torchmps"))
-from papers.DQNN.lib.torchmps.torchmps import MPS
+
+from papers.DQNN.lib.torchmps import MPS
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -51,6 +51,8 @@ def create_ablation_class(
     bond,
     bs: List[BosonSampler] = None,
     classical_model: nn.Module = CNNModel(),
+    with_general_interferometer: bool = False,
+    groupping: bool = False,
     Haar_matrix_init: bool = False,
 ):
     """
@@ -64,13 +66,10 @@ def create_ablation_class(
     bond : int
         The bond dimension for the MPS in the ablation module.
     bs: List[BosonSampler]
-        Boson sampler to use untrained in the ablation Model. If None, just used a randomized tensor.
-        Default is None.
+        Boson sampler to use untrained in the ablation Model. If None, just used a randomized tensor
+        Default is 1.
     classical_model: nn.Module
         The classical model whose parameters we want to optimize. Default is CNNModel().
-    Haar_matrix_init: bool
-        Wether to use a Haar matrix random unitary for the circuit boson samplers. THE BOSON SAMPLER BECOMES UN TRAINABLE IF SO
-        Default is False.
 
     Returns
     --------
@@ -78,12 +77,13 @@ def create_ablation_class(
         A tuple containing the ablation model (AblationModule)
     """
     n_qubit, nw_list_normal = calculate_qubits(classical_model)
-    bs = create_boson_samplers(nw_list_normal)
-
+    bs = create_boson_samplers(
+        nw_list_normal, with_general_interferometer=with_general_interferometer
+    )
     num_params = 1
     for i in bs:
         num_params *= comb(i.m, i.n)
-        if Haar_matrix_init:
+        if Haar_matrix_init is True:
             input_state = i.m * [0]
             places = torch.linspace(0, i.m - 1, i.n)
             for photon in places:
@@ -107,7 +107,12 @@ def create_ablation_class(
         Ablation study module that uses MPS to process weights instead of quantum boson samplers.
         """
 
-        def __init__(self):
+        def __init__(
+            self,
+            groupping: bool = False,
+            nw_list_normal: List[float] = None,
+            embedding_size: int = None,
+        ):
             """
             Initialize the AblationModule with an MPS for weight processing.
             """
@@ -116,6 +121,11 @@ def create_ablation_class(
             self.MappingNetwork = MPS(
                 input_dim=n_qubit + 1, output_dim=1, bond_dim=bond
             )
+            self.embedding_size = embedding_size
+            if groupping is None:
+                self.grouper = None
+            else:
+                self.grouper = ML.ModGrouping(embedding_size, len(nw_list_normal))
 
         def forward(self, x, classical_model_: nn.Module):
             """
@@ -150,9 +160,13 @@ def create_ablation_class(
                             .flatten()
                             .reshape(new_size, 1)
                         )
-
-            probs_ = probs_[: len(nw_list_normal)]
-            probs_ = probs_.reshape(len(nw_list_normal), 1)
+            if self.grouper is None:
+                probs_ = probs_[: len(nw_list_normal)]
+                probs_ = probs_.reshape(len(nw_list_normal), 1)
+            else:
+                probs_ = probs_.reshape(1, self.embedding_size)
+                probs_ = self.grouper(probs_)
+                probs_ = probs_.reshape(len(nw_list_normal), 1)
 
             # Generate qubit states using PyTorch
             qubit_states_torch = generate_qubit_states_torch(n_qubit)[
@@ -176,7 +190,11 @@ def create_ablation_class(
             output = functional_call(classical_model_, param_dict, (x,))
             return output
 
-    return AblationModule().to(device)
+    return AblationModule(
+        groupping=groupping,
+        nw_list_normal=nw_list_normal,
+        embedding_size=num_params,
+    ).to(device)
 
 
 def run_ablation_exp(
@@ -187,6 +205,11 @@ def run_ablation_exp(
     num_qnn_train_step: int = 12,
     generate_graph: bool = True,
     run_dir: Path = None,
+    with_general_interferometer: bool = False,
+    groupping: bool = False,
+    use_fashion: bool = False,
+    use_cifar: bool = False,
+    Haar_matrix_init: bool = False,
 ):
     """
     Run ablation experiments to evaluate the importance of the quantum layer in the Quantum Train.
@@ -228,22 +251,39 @@ def run_ablation_exp(
     accuracy_qt = []
     params_qt = []
 
-    _, _, train_loader, val_loader = create_datasets(batch_size=1000, use_fashion=True)
+    _, _, train_loader, val_loader = create_datasets(
+        batch_size=1000, use_fashion=use_fashion, use_CIFAR=use_cifar
+    )
 
     for bond in bond_dimensions_to_test:
         ### QTrain
-        classical_model = CNNModel()
+        if use_cifar is True:
+            classical_model = CIFARModel()
+        else:
+            classical_model = CNNModel()
         n_qubit, nw_list_normal = calculate_qubits(classical_model)
-        bs = create_boson_samplers(nw_list_normal)
-        qt_model = PhotonicQuantumTrain(n_qubit, bond_dim=bond).to(device)
+        bs = create_boson_samplers(
+            nw_list_normal, with_general_interferometer=with_general_interferometer
+        )
+        embedding_size = bs[0].embedding_size
+        for i in range(1, len(bs)):
+            embedding_size *= bs[i].embedding_size
+        qt_model = PhotonicQuantumTrain(
+            n_qubit,
+            bond_dim=bond,
+            groupping=groupping,
+            nw_list_normal=nw_list_normal,
+            embedding_size=embedding_size,
+        ).to(device)
 
         ### Ablation
-        # TODO REMOVE THE HAAR MATRIX INIT
-        # ablation_model = create_ablation_class(
-        #     bond=bond, bs=bs, classical_model=CNNModel(), Haar_matrix_init=True
-        # )
         ablation_model = create_ablation_class(
-            bond=bond, bs=bs, classical_model=CNNModel(), Haar_matrix_init=False
+            bond=bond,
+            bs=bs,
+            classical_model=CIFARModel() if use_cifar is True else CNNModel(),
+            with_general_interferometer=with_general_interferometer,
+            groupping=groupping,
+            Haar_matrix_init=Haar_matrix_init,
         )
 
         params_ablation.append(
@@ -303,9 +343,7 @@ def run_ablation_exp(
 
                 train_loss /= len(train_loader)
 
-        acc_ab, loss_ab = evaluate_classical_model(
-            ablation_model, val_loader, classical_model=classical_model
-        )
+        acc_ab, loss_ab = evaluate_classical_model(classical_model, val_loader)
 
         ################################################################################################################################
         print("QTrain")

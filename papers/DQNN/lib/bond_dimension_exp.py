@@ -22,7 +22,7 @@ from papers.DQNN.lib.photonic_qt_utils import (
     calculate_qubits,
 )
 from papers.DQNN.lib.model import PhotonicQuantumTrain, train_quantum_model
-from papers.DQNN.lib.classical_utils import CNNModel
+from papers.DQNN.lib.classical_utils import CNNModel, CIFARModel
 from papers.DQNN.utils.utils import plot_bond_exp, create_datasets
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -36,6 +36,10 @@ def run_bond_dimension_exp(
     num_qnn_train_step: int = 12,
     generate_graph: bool = True,
     run_dir: Path = None,
+    with_general_interferometer: bool = False,
+    groupping: bool = False,
+    use_fashion: bool = False,
+    use_cifar: bool = False,
 ):
     """
     Run experiments to evaluate the impact of different bond dimensions on the performance of the Quantum Train.
@@ -73,14 +77,29 @@ def run_bond_dimension_exp(
 
     # Bond dimension
     for bd in bond_dimensions_to_test:
-        train_dataset, _, train_loader, _ = create_datasets()
-
-        classical_model = CNNModel(use_weight_sharing=False)
+        train_dataset, _, train_loader, _ = create_datasets(
+            use_fashion=use_fashion, use_CIFAR=use_cifar
+        )
+        if use_cifar is True:
+            classical_model = CIFARModel()
+        else:
+            classical_model = CNNModel(use_weight_sharing=False)
 
         n_qubit, nw_list_normal = calculate_qubits(classical_model)
-        bs = create_boson_samplers(nw_list_normal)
+        bs = create_boson_samplers(
+            nw_list_normal, with_general_interferometer=with_general_interferometer
+        )
 
-        qt_model = PhotonicQuantumTrain(n_qubit, bond_dim=bd).to(device)
+        embedding_size = bs[0].embedding_size
+        for i in range(1, len(bs)):
+            embedding_size *= bs[i].embedding_size
+        qt_model = PhotonicQuantumTrain(
+            n_qubit,
+            bond_dim=bd,
+            groupping=groupping,
+            nw_list_normal=nw_list_normal,
+            embedding_size=embedding_size,
+        ).to(device)
 
         batch_size_qnn = 1000
         train_loader_qnn = DataLoader(train_dataset, batch_size_qnn, shuffle=True)

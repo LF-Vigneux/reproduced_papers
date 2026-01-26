@@ -9,5 +9,9 @@
     "classical_epochs": 5,
     "pruning_amount": 0.5,
     "shared_rows": 10,
-    "dont_generate_graph":"False"
+    "dont_generate_graph":"False",
+    "with_general_interferometer":"False",
+    "groupping":"False",
+    "use_fashion":"False",
+    "use_cifar":"False"
 }

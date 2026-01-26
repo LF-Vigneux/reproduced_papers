@@ -32,8 +32,8 @@ from papers.DQNN.lib.classical_utils import (
 )
 from papers.DQNN.utils.utils import create_datasets, plot_compression_exp
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "torchmps"))
-from papers.DQNN.lib.torchmps.torchmps import MPS
+
+from papers.DQNN.lib.torchmps import MPS
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -47,6 +47,9 @@ def run_compression_exp(
     num_qnn_train_step: int = 12,
     generate_graph: bool = True,
     run_dir: Path = None,
+    with_general_interferometer: bool = False,
+    groupping: bool = False,
+    use_fashion: bool = False,
 ):
     """
     Run compression experiments across bond dimensions and baselines.
@@ -92,7 +95,9 @@ def run_compression_exp(
     accuracy_qt = []
     params_qt = []
 
-    _, _, train_loader, val_loader = create_datasets(batch_size=1000)
+    _, _, train_loader, val_loader = create_datasets(
+        batch_size=1000, use_fashion=use_fashion
+    )
     pruning_iterator = 0
     for bond in bond_dimensions_to_test:
         ### QTrain
@@ -102,8 +107,19 @@ def run_compression_exp(
         print("QTrain")
         classical_model = CNNModel()
         n_qubit, nw_list_normal = calculate_qubits(classical_model)
-        bs = create_boson_samplers(nw_list_normal)
-        qt_model = PhotonicQuantumTrain(n_qubit, bond_dim=bond).to(device)
+        bs = create_boson_samplers(
+            nw_list_normal, with_general_interferometer=with_general_interferometer
+        )
+        embedding_size = bs[0].embedding_size
+        for i in range(1, len(bs)):
+            embedding_size *= bs[i].embedding_size
+        qt_model = PhotonicQuantumTrain(
+            n_qubit,
+            bond_dim=bond,
+            groupping=groupping,
+            nw_list_normal=nw_list_normal,
+            embedding_size=embedding_size,
+        ).to(device)
         qt_model, qnn_parameters, _, _ = train_quantum_model(
             qt_model,
             classical_model,

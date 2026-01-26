@@ -1,0 +1,63 @@
+_wandb:
+    value:
+        cli_version: 0.23.1
+        e:
+            4fed5je0yilvrbzs7aq4a10r9g38ofd5:
+                apple:
+                    ecpuCores: 6
+                    gpuCores: 10
+                    memoryGb: 16
+                    name: Apple M4
+                    pcpuCores: 4
+                    ramTotalBytes: "17179869184"
+                    swapTotalBytes: "3221225472"
+                cpu_count: 10
+                cpu_count_logical: 10
+                disk:
+                    /:
+                        total: "494384795648"
+                        used: "100995952640"
+                email: lfvigneux@gmail.com
+                executable: /Users/lfvigneux/miniconda3/envs/Quandela_1_test/bin/python
+                git:
+                    commit: 4c2bc52eae87ee2e721e7a0929bed755bdd76062
+                    remote: https://github.com/LF-Vigneux/reproduced_papers.git
+                host: LT-185-25-AP-Q.local
+                memory:
+                    total: "17179869184"
+                os: macOS-26.2-arm64-arm-64bit
+                program: /Users/lfvigneux/Desktop/Unboarding/CIFAR-10.py
+                python: CPython 3.12.12
+                root: /Users/lfvigneux/Documents/GitHub/reproduced_papers copy
+                startedAt: "2026-01-26T15:34:36.455424Z"
+                writerId: 4fed5je0yilvrbzs7aq4a10r9g38ofd5
+        m: []
+        python_version: 3.12.12
+        t:
+            "1":
+                - 1
+                - 5
+                - 41
+                - 53
+            "2":
+                - 1
+                - 5
+                - 41
+                - 53
+            "3":
+                - 2
+                - 16
+            "4": 3.12.12
+            "5": 0.23.1
+            "12": 0.23.1
+            "13": darwin-arm64
+batch_size:
+    value: 250
+epochs:
+    value: 35
+lr:
+    value: 0.001
+method:
+    value: CNN
+num_hidden_layers:
+    value: 5
