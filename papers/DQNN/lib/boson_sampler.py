@@ -26,7 +26,13 @@ class BosonSampler:
         Number of interferometer layers to stack. Default is 1.
     """
 
-    def __init__(self, m: int, n: int, qnn_layers: int = 1):
+    def __init__(
+        self,
+        m: int,
+        n: int,
+        qnn_layers: int = 1,
+        with_general_interferometer: bool = False,
+    ):
         """
         Initialize the boson sampler and create its quantum layer.
 
@@ -44,7 +50,10 @@ class BosonSampler:
         assert (
             n <= m
         ), "Got more modes than photons, can only input 0 or 1 photon per mode"
-        self.quantum_layer = self.create_quantum_layer(qnn_layers=qnn_layers)
+        self.quantum_layer = self.create_quantum_layer(
+            qnn_layers=qnn_layers,
+            with_general_interferometer=with_general_interferometer,
+        )
         self.quantum_layer
 
     @property
@@ -145,7 +154,9 @@ class BosonSampler:
 
         return circuit
 
-    def create_quantum_layer(self, qnn_layers: int = 1) -> ML.QuantumLayer:
+    def create_quantum_layer(
+        self, qnn_layers: int = 1, with_general_interferometer: bool = False
+    ) -> ML.QuantumLayer:
         """
         Create the QuantumLayer wrapper for the parameterized circuit.
 
@@ -159,7 +170,6 @@ class BosonSampler:
         merlin.QuantumLayer
             Quantum layer configured with the circuit and input state.
         """
-        circuit = self.create_quantum_circuit(qnn_layers=qnn_layers)
 
         # Create the input state
         input_state = self.m * [0]
@@ -168,18 +178,35 @@ class BosonSampler:
             input_state[int(photon)] = 1
         input_state = pcvl.BasicState(input_state)
 
-        # Create parameters
-        width = len(str(self.nb_parameters - 1))
-        parameters = [f"phi{i:0{width}d}" for i in range(self.num_effective_params)]
+        if with_general_interferometer:
+            circuit = ML.CircuitBuilder(self.m)
+            circuit.add_entangling_layer(name="phi")
+            output = ML.QuantumLayer(
+                input_size=0,
+                n_photons=self.n,
+                builder=circuit,
+                input_state=input_state,
+                computation_space=ML.ComputationSpace.UNBUNCHED,
+            )
+            self.num_effective_params = 0
+            for i in output.parameters():
+                self.num_effective_params += i.numel()
+            return output
+        else:
+            circuit = self.create_quantum_circuit(qnn_layers=qnn_layers)
 
-        return ML.QuantumLayer(
-            input_size=0,
-            n_photons=self.n,
-            circuit=circuit,
-            input_state=input_state,
-            trainable_parameters=parameters,
-            computation_space=ML.ComputationSpace.UNBUNCHED,
-        )
+            # Create parameters
+            width = len(str(self.nb_parameters - 1))
+            parameters = [f"phi{i:0{width}d}" for i in range(self.num_effective_params)]
+
+            return ML.QuantumLayer(
+                input_size=0,
+                n_photons=self.n,
+                circuit=circuit,
+                input_state=input_state,
+                trainable_parameters=parameters,
+                computation_space=ML.ComputationSpace.UNBUNCHED,
+            )
 
     def set_params(self, params: torch.Tensor) -> None:
         """

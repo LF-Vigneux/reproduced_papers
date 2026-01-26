@@ -21,8 +21,8 @@ from papers.DQNN.lib.classical_utils import build_parameter_dict
 from papers.DQNN.lib.boson_sampler import BosonSampler
 from typing import List, Tuple
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "torchmps"))
-from papers.DQNN.lib.torchmps.torchmps import MPS
+
+from papers.DQNN.lib.torchmps import MPS
 
 from torch.func import functional_call
 
@@ -41,7 +41,14 @@ class PhotonicQuantumTrain(nn.Module):
         Bond dimension for the MPS mapping network. Default is 7.
     """
 
-    def __init__(self, n_qubit: int, bond_dim: int = 7):
+    def __init__(
+        self,
+        n_qubit: int,
+        bond_dim: int = 7,
+        groupping: bool = False,
+        nw_list_normal: List[float] = None,
+        embedding_size: int = None,
+    ):
         """
         Initialize the mapping network based on an MPS.
 
@@ -56,6 +63,11 @@ class PhotonicQuantumTrain(nn.Module):
         self.MappingNetwork = MPS(
             input_dim=n_qubit + 1, output_dim=1, bond_dim=bond_dim
         )
+        self.embedding_size = embedding_size
+        if groupping is None:
+            self.grouper = None
+        else:
+            self.grouper = nn.Linear(self.embedding_size, len(nw_list_normal))
 
     def extract_parameters(
         self,
@@ -91,9 +103,14 @@ class PhotonicQuantumTrain(nn.Module):
                 .flatten()
                 .reshape(new_size, 1)
             )
-            # Get the necessary probabilities
-        probs_ = probs_[: len(nw_list_normal)]
-        probs_ = probs_.reshape(len(nw_list_normal), 1)
+        # Get the necessary probabilities
+        if self.grouper is None:
+            probs_ = probs_[: len(nw_list_normal)]
+            probs_ = probs_.reshape(len(nw_list_normal), 1)
+        else:
+            probs_ = probs_.reshape(1, self.embedding_size)
+            probs_ = self.grouper(probs_)
+            probs_ = probs_.reshape(len(nw_list_normal), 1)
 
         # Generate all qubit states
         qubit_states_torch = generate_qubit_states_torch(n_qubit)[: len(nw_list_normal)]

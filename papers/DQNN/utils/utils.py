@@ -14,11 +14,58 @@ import torch
 import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Tuple, List
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 import pathlib
+import os
+import torchvision.transforms as transforms, torchvision
 
 script_dir = Path(__file__).parent.parent.parent.parent
 DATA_PATH = (script_dir / "data/DQNN").resolve()
+
+
+class MNIST_fashion(Dataset):
+    def __init__(self, data=DATA_PATH, transform=None, split="train"):
+        """
+        Args:
+            data: path to dataset folder which contains train.csv and val.csv
+            transform (callable, optional): Optional transform to be applied
+                on a sample (e.g., data augmentation or normalization)
+            split: 'train' or 'val' to determine which set to download
+        """
+        self.data_dir = data
+        self.transform = transform
+        self.data = []
+
+        if split == "train":
+            filename = os.path.join(self.data_dir, "fashion-mnist_train_formatted.csv")
+        elif split == "val":
+            filename = os.path.join(self.data_dir, "fashion-mnist_test_formatted.csv")
+        else:
+            raise AttributeError(
+                "split!='train' and split!='val': split must be train or val"
+            )
+
+        self.df = pd.read_csv(filename)
+
+    def __len__(self):
+        l = len(self.df["image"])
+        return l
+
+    def __getitem__(self, idx):
+        img = self.df["image"].iloc[idx]
+        label = self.df["label"].iloc[idx]
+        # string to list
+        img_list = re.split(r",", img)
+        # remove '[' and ']'
+        img_list[0] = img_list[0][1:]
+        img_list[-1] = img_list[-1][:-1]
+        # convert to float
+        img_float = [float(el) for el in img_list]
+        # convert to image
+        img_square = torch.unflatten(torch.tensor(img_float), 0, (1, 28, 28))
+        if self.transform is not None:
+            img_square = self.transform(img_square)
+        return img_square, label
 
 
 class HFImageDataset(Dataset):
@@ -66,6 +113,9 @@ class HFImageDataset(Dataset):
 
 def create_datasets(
     batch_size: int = 128,
+    use_fashion: bool = False,
+    use_CIFAR: bool = False,
+    max_items=6000,
 ) -> Tuple[Dataset, Dataset, DataLoader, DataLoader]:
     """
     Create MNIST train/validation datasets and data loaders.
@@ -79,6 +129,43 @@ def create_datasets(
     Tuple[Dataset, Dataset, DataLoader, DataLoader]
         Train dataset, validation dataset, train loader and validation loader.
     """
+    if use_fashion is True:
+        train_dataset = MNIST_fashion(split="train")
+        val_dataset = MNIST_fashion(split="val")
+        train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size, shuffle=False)
+        return train_dataset, val_dataset, train_loader, val_loader
+
+    if use_CIFAR is True:
+        DATA_PATH = (script_dir / "data/DQNN").resolve()
+        train_dataset = torchvision.datasets.CIFAR10(
+            root=DATA_PATH,
+            train=True,
+            download=True,
+            transform=transforms.Compose(
+                [
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                ]
+            ),
+        )
+        indices = torch.randperm(len(train_dataset))[:max_items]
+        train_dataset = Subset(train_dataset, indices)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        val_dataset = torchvision.datasets.CIFAR10(
+            root=DATA_PATH,
+            train=False,
+            download=True,
+            transform=transforms.Compose(
+                [
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                ]
+            ),
+        )
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
+        return train_dataset, val_dataset, train_loader, val_loader
+
     train_dataset = HFImageDataset(
         load_dataset("Quandela/PercevalQuest-MNIST", split="train")
     )
@@ -202,6 +289,31 @@ def parse_args():
         type=int,
         default=10,
         help="Number of shared rows for weight sharing (default: 10)",
+    )
+    parser.add_argument(
+        "--with_general_interferometer",
+        action="store_true",
+        help="Enable general interferometer boson samplers",
+    )
+    parser.add_argument(
+        "--groupping",
+        action="store_true",
+        help="Enable grouping outputs instead of truncation",
+    )
+    parser.add_argument(
+        "--use_fashion",
+        action="store_true",
+        help="Use the fashion MNIST dataset",
+    )
+    parser.add_argument(
+        "--use_cifar",
+        action="store_true",
+        help="Use the CIFAR dataset",
+    )
+    parser.add_argument(
+        "--Haar_matrix_init",
+        action="store_true",
+        help="Use the haar matrix distribution for init of boson samplers. For the ablation exp only",
     )
     parser.add_argument(
         "--config",

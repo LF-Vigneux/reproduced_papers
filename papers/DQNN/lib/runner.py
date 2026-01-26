@@ -58,6 +58,10 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
             num_qnn_train_step=cfg.get("num_qnn_train_step", 12),
             generate_graph=generate_graph,
             run_dir=run_dir,
+            with_general_interferometer=cfg.get("with_general_interferometer", False),
+            groupping=cfg.get("groupping", False),
+            use_fashion=cfg.get("use_fashion", False),
+            use_cifar=cfg.get("use_cifar", False),
         )
     elif exp_to_run == "BOND":
         print("Running the BOND experiment")
@@ -69,6 +73,10 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
             num_qnn_train_step=cfg.get("num_qnn_train_step", 12),
             generate_graph=generate_graph,
             run_dir=run_dir,
+            with_general_interferometer=cfg.get("with_general_interferometer", False),
+            groupping=cfg.get("groupping", False),
+            use_fashion=cfg.get("use_fashion", False),
+            use_cifar=cfg.get("use_cifar", False),
         )
     elif exp_to_run == "ABLATION":
         print("Running the ABLATION experiment")
@@ -80,9 +88,14 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
             num_qnn_train_step=cfg.get("num_qnn_train_step", 12),
             generate_graph=generate_graph,
             run_dir=run_dir,
+            with_general_interferometer=cfg.get("with_general_interferometer", False),
+            groupping=cfg.get("groupping", False),
+            use_fashion=cfg.get("use_fashion", False),
+            Haar_matrix_init=cfg.get("Haar_matrix_init", False),
+            use_cifar=cfg.get("use_cifar", False),
         )
     elif exp_to_run == "COMPRESSION":
-        print("Running the ABLATION experiment")
+        print("Running the COMPRESSION experiment")
         run_compression_exp(
             bond_dimensions_to_test=bond_dimensions_to_test or list(range(1, 11)),
             num_training_rounds=cfg.get("num_training_rounds", 2),
@@ -92,6 +105,9 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
             num_qnn_train_step=cfg.get("num_qnn_train_step", 12),
             generate_graph=generate_graph,
             run_dir=run_dir,
+            with_general_interferometer=cfg.get("with_general_interferometer", False),
+            groupping=cfg.get("groupping", False),
+            use_fashion=cfg.get("use_fashion", False),
         )
     else:
         raise NameError("No experiment with that name")

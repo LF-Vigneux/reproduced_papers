@@ -6,5 +6,8 @@
     "num_training_rounds": 50,
     "num_epochs": 5,
     "classical_epochs": 30,
-    "num_qnn_train_step": 12
+    "num_qnn_train_step": 12,
+    "with_general_interferometer":"False",
+    "groupping":"False",
+    "use_fashion":"False"
 }

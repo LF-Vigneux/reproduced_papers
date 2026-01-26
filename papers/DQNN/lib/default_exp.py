@@ -25,7 +25,7 @@ from papers.DQNN.lib.model import (
     train_quantum_model,
     evaluate_model,
 )
-from papers.DQNN.lib.classical_utils import train_classical_cnn, CNNModel
+from papers.DQNN.lib.classical_utils import train_classical_cnn, CNNModel, CIFARModel
 from papers.DQNN.utils.utils import plot_training_metrics, create_datasets
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -44,6 +44,10 @@ def run_default_exp(
     qu_train_with_cobyla: bool = False,
     generate_graph: bool = True,
     run_dir: Path = None,
+    with_general_interferometer: bool = False,
+    groupping: bool = False,
+    use_fashion: bool = False,
+    use_cifar: bool = False,
 ):
     """
     Run the default experiment workflow.
@@ -89,9 +93,14 @@ def run_default_exp(
         f"  Weight sharing: {weight_sharing} (shared rows: {shared_rows if weight_sharing else 'N/A'})"
     )
 
-    model = CNNModel(use_weight_sharing=weight_sharing, shared_rows=shared_rows)
+    if use_cifar is True:
+        model = CIFARModel()
+    else:
+        model = CNNModel(use_weight_sharing=weight_sharing, shared_rows=shared_rows)
 
-    train_dataset, _, train_loader, val_loader = create_datasets()
+    train_dataset, _, train_loader, val_loader = create_datasets(
+        use_fashion=use_fashion, use_CIFAR=use_cifar
+    )
 
     _ = train_classical_cnn(
         model,
@@ -101,12 +110,26 @@ def run_default_exp(
         use_pruning=pruning,
         pruning_amount=pruning_amount,
     )
-
-    classical_model = CNNModel(use_weight_sharing=False)
+    if use_cifar is True:
+        classical_model = CIFARModel()
+    else:
+        classical_model = CNNModel(use_weight_sharing=False)
     n_qubit, nw_list_normal = calculate_qubits(classical_model)
-    bs = create_boson_samplers(nw_list_normal)
+    bs = create_boson_samplers(
+        nw_list_normal, with_general_interferometer=with_general_interferometer
+    )
 
-    qt_model = PhotonicQuantumTrain(n_qubit, bond_dim=bond_dim).to(device)
+    embedding_size = bs[0].embedding_size
+    for i in range(1, len(bs)):
+        embedding_size *= bs[i].embedding_size
+
+    qt_model = PhotonicQuantumTrain(
+        n_qubit,
+        bond_dim=bond_dim,
+        groupping=groupping,
+        nw_list_normal=nw_list_normal,
+        embedding_size=embedding_size,
+    ).to(device)
 
     batch_size_qnn = 1000
     train_loader_qnn = DataLoader(train_dataset, batch_size_qnn, shuffle=True)

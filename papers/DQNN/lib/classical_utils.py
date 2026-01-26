@@ -134,6 +134,43 @@ class CNNModel(nn.Module):
         return x
 
 
+class CIFARModel(nn.Module):
+    def __init__(self, num_layers: int = 4):
+        super(CIFARModel, self).__init__()
+        num_layers = min(5, num_layers)
+        if num_layers <= 0:
+            num_layers = 1
+
+        layers = [
+            nn.Conv2d(3, 32, kernel_size=3, padding=1),  # 32x32 -> 32x32
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+        ]
+        for i in range(0, num_layers - 1):
+            layers.extend(
+                [
+                    nn.Conv2d(
+                        32 * (2 ** (i)), 32 * (2 ** (i + 1)), kernel_size=3, padding=1
+                    ),
+                    nn.ReLU(),
+                    nn.MaxPool2d(2),
+                ]
+            )
+
+        layers.extend(
+            [
+                nn.Flatten(),
+                nn.Linear((32**3) // (2 ** (num_layers + 1)), 128),
+                nn.ReLU(),
+                nn.Linear(128, 10),
+            ]
+        )
+        self.model = nn.Sequential(*layers)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.model(x)
+
+
 def apply_pruning(model: nn.Module, amount: float = 0.3):
     """
     Apply structured pruning to convolutional and fully connected layers.
