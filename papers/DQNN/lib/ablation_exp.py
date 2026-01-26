@@ -125,7 +125,7 @@ def create_ablation_class(
             if groupping is None:
                 self.grouper = None
             else:
-                self.grouper = nn.Linear(self.embedding_size, len(nw_list_normal))
+                self.grouper = ML.ModGrouping(embedding_size, len(nw_list_normal))
 
         def forward(self, x, classical_model_: nn.Module):
             """

@@ -1,0 +1,3 @@
+2026-01-26 14:07:20 | INFO | runtime | Starting DQNN run
+2026-01-26 14:08:08 | WARNING | huggingface_hub.utils._http | '(MaxRetryError('HTTPSConnectionPool(host=\'huggingface.co\', port=443): Max retries exceeded with url: /datasets/Quandela/PercevalQuest-MNIST/resolve/main/README.md (Caused by NameResolutionError("HTTPSConnection(host=\'huggingface.co\', port=443): Failed to resolve \'huggingface.co\' ([Errno 8] nodename nor servname provided, or not known)"))'), '(Request ID: d2f16af0-a97a-4885-afbc-e9f501b199ce)')' thrown while requesting HEAD https://huggingface.co/datasets/Quandela/PercevalQuest-MNIST/resolve/main/README.md
+2026-01-26 14:08:08 | WARNING | huggingface_hub.utils._http | Retrying in 1s [Retry 1/5].

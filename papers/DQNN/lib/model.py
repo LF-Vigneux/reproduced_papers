@@ -11,8 +11,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import numpy as np
 import time
-import sys
-import os
+import merlin as ML
 from scipy.optimize import minimize
 from papers.DQNN.lib.photonic_qt_utils import (
     generate_qubit_states_torch,
@@ -67,7 +66,7 @@ class PhotonicQuantumTrain(nn.Module):
         if groupping is None:
             self.grouper = None
         else:
-            self.grouper = nn.Linear(self.embedding_size, len(nw_list_normal))
+            self.grouper = ML.ModGrouping(embedding_size, len(nw_list_normal))
 
     def extract_parameters(
         self,
