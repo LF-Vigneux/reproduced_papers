@@ -64,8 +64,10 @@ class PhotonicQuantumTrain(nn.Module):
         )
         self.embedding_size = embedding_size
         if groupping is None:
+            print("No")
             self.grouper = None
         else:
+            print("Yes")
             self.grouper = ML.ModGrouping(embedding_size, len(nw_list_normal))
 
     def extract_parameters(

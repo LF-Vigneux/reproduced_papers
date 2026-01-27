@@ -343,7 +343,9 @@ def run_ablation_exp(
 
                 train_loss /= len(train_loader)
 
-        acc_ab, loss_ab = evaluate_classical_model(classical_model, val_loader)
+        acc_ab, loss_ab = evaluate_classical_model(
+            ablation_model, val_loader, classical_model=classical_model
+        )
 
         ################################################################################################################################
         print("QTrain")

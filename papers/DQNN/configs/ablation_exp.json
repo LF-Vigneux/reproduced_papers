@@ -6,8 +6,8 @@
     "num_training_rounds": 50,
     "num_epochs": 5,
     "num_qnn_train_step": 12,
-    "with_general_interferometer":"True",
-    "groupping":"False",
+    "with_general_interferometer":"False",
+    "groupping":"True",
     "use_fashion":"False",
     "use_cifar":"False",
     "Haar_matrix_init":"False"
