@@ -123,7 +123,7 @@ def run_bond_dimension_exp(
         json_str = json.dumps({"loss_list": losses, "acc_list": accuracies}, indent=4)
         with open(current_dir + "bond_dimension_data.json", "w") as f:
             f.write(json_str)
-    if generate_graph:
+    if generate_graph is True:
         plot_bond_exp(
             bond_dimensions_to_test,
             np.arange(num_training_rounds),

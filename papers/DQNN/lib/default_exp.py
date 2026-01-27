@@ -158,5 +158,5 @@ def run_default_exp(
         nw_list_normal,
     )
 
-    if generate_graph:
+    if generate_graph is True:
         plot_training_metrics(loss_list_epoch, acc_list_epoch, run_dir=run_dir)

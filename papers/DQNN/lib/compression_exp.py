@@ -203,7 +203,7 @@ def run_compression_exp(
         json_str = json.dumps(json_payload, indent=4)
         with open(current_dir + "compression_data.json", "w") as f:
             f.write(json_str)
-    if generate_graph:
+    if generate_graph is True:
         plot_compression_exp(
             accuracy_ws,
             params_ws,

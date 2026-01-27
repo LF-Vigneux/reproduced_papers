@@ -398,7 +398,7 @@ def run_ablation_exp(
         json_str = json.dumps(json_payload, indent=4)
         with open(current_dir + "ablation_data.json", "w") as f:
             f.write(json_str)
-    if generate_graph:
+    if generate_graph is True:
         plot_ablation_exp(
             params_qt=params_qt,
             accuracy_qt=accuracy_qt,
