@@ -177,7 +177,6 @@ class BosonSampler:
         for photon in places:
             input_state[int(photon)] = 1
         input_state = pcvl.BasicState(input_state)
-
         if with_general_interferometer:
             circuit = ML.CircuitBuilder(self.m)
             circuit.add_entangling_layer(name="phi")
@@ -193,6 +192,7 @@ class BosonSampler:
                 self.num_effective_params += i.numel()
             return output
         else:
+            print("No")
             circuit = self.create_quantum_circuit(qnn_layers=qnn_layers)
 
             # Create parameters

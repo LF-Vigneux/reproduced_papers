@@ -77,7 +77,7 @@ def run_default_exp(
         is to be used, 1000 is the suggested value.
     generate_graph : bool, optional
         Whether to plot a summary of train/test metrics after evaluation.
-        Default is True.
+        Default .
     run_dir : pathlib.Path, optional
         Output directory for the PDF when running via the shared runtime. If None,
         the plot is saved under the local results folder.

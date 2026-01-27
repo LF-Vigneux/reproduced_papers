@@ -26,5 +26,5 @@ def test_train_and_evaluate_writes_artifact(tmp_path, monkeypatch):
 
     dr_runner.train_and_evaluate(cfg, tmp_path)
 
-    assert markers.get("figure_5") is True
+    assert markers.get("figure_5")
     assert (tmp_path / "figure_5_results.json").exists()

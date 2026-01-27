@@ -75,7 +75,7 @@ def run_compression_exp(
     num_qnn_train_step : int, optional
         Number of QNN training steps per round. Default is 12.
     generate_graph : bool, optional
-        Whether to generate the compression plot. Default is True.
+        Whether to generate the compression plot. Default .
     run_dir : pathlib.Path, optional
         Output directory for the plot when running via the shared runtime.
         If None, the plot is saved under the local results folder.

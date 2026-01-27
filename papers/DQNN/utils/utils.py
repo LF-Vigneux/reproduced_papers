@@ -165,7 +165,6 @@ def create_datasets(
         )
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
         return train_dataset, val_dataset, train_loader, val_loader
-
     train_dataset = HFImageDataset(
         load_dataset("Quandela/PercevalQuest-MNIST", split="train")
     )
