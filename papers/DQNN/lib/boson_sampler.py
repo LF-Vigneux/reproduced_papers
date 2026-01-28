@@ -192,7 +192,6 @@ class BosonSampler:
                 self.num_effective_params += i.numel()
             return output
         else:
-            print("No")
             circuit = self.create_quantum_circuit(qnn_layers=qnn_layers)
 
             # Create parameters
