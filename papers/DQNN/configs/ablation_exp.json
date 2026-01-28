@@ -7,8 +7,8 @@
     "num_epochs": 5,
     "num_qnn_train_step": 12,
     "with_general_interferometer":"False",
-    "groupping":"True",
+    "groupping":"False",
     "use_fashion":"False",
-    "use_cifar":"False",
+    "use_cifar":"True",
     "Haar_matrix_init":"False"
 }

@@ -18,9 +18,9 @@
   "shared_rows": 10,
   "dont_generate_graph": "False",
   "with_general_interferometer": "False",
-  "groupping": "True",
+  "groupping": "False",
   "use_fashion": "False",
-  "use_cifar": "False",
+  "use_cifar": "True",
   "bond_dimensions_to_test": [
     2,
     3,

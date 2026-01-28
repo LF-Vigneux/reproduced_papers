@@ -21,6 +21,7 @@ from papers.DQNN.lib.ablation_exp import run_ablation_exp
 from papers.DQNN.lib.bond_dimension_exp import run_bond_dimension_exp
 from papers.DQNN.lib.default_exp import run_default_exp
 from papers.DQNN.lib.compression_exp import run_compression_exp
+from papers.DQNN.utils.utils import str_to_bool
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -40,7 +41,7 @@ def _parse_bond_dimensions(value):
 
 def train_and_evaluate(cfg, run_dir: Path) -> None:
     exp_to_run = cfg.get("exp_to_run", "DEFAULT")
-    generate_graph = not cfg.get("dont_generate_graph", False)
+    generate_graph = not str_to_bool(cfg.get("dont_generate_graph", False))
     bond_dimensions_to_test = _parse_bond_dimensions(cfg.get("bond_dimensions_to_test"))
 
     if exp_to_run == "DEFAULT":
@@ -50,18 +51,20 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
             num_training_rounds=cfg.get("num_training_rounds", 2),
             num_epochs=cfg.get("num_epochs", 5),
             classical_epochs=cfg.get("classical_epochs", 5),
-            pruning=cfg.get("pruning", False),
+            pruning=str_to_bool(cfg.get("pruning", False)),
             pruning_amount=cfg.get("pruning_amount", 0.5),
-            weight_sharing=cfg.get("weight_sharing", False),
+            weight_sharing=str_to_bool(cfg.get("weight_sharing", False)),
             shared_rows=cfg.get("shared_rows", 10),
-            qu_train_with_cobyla=cfg.get("qu_train_with_cobyla", False),
+            qu_train_with_cobyla=str_to_bool(cfg.get("qu_train_with_cobyla", False)),
             num_qnn_train_step=cfg.get("num_qnn_train_step", 12),
             generate_graph=generate_graph,
             run_dir=run_dir,
-            with_general_interferometer=cfg.get("with_general_interferometer", False),
-            groupping=cfg.get("groupping", False),
-            use_fashion=cfg.get("use_fashion", False),
-            use_cifar=cfg.get("use_cifar", False),
+            with_general_interferometer=str_to_bool(
+                cfg.get("with_general_interferometer", False)
+            ),
+            groupping=str_to_bool(cfg.get("groupping", False)),
+            use_fashion=str_to_bool(cfg.get("use_fashion", False)),
+            use_cifar=str_to_bool(cfg.get("use_cifar", False)),
         )
     elif exp_to_run == "BOND":
         print("Running the BOND experiment")
@@ -69,14 +72,14 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
             bond_dimensions_to_test=bond_dimensions_to_test or list(range(1, 11)),
             num_training_rounds=cfg.get("num_training_rounds", 2),
             num_epochs=cfg.get("num_epochs", 5),
-            qu_train_with_cobyla=cfg.get("qu_train_with_cobyla", False),
+            qu_train_with_cobyla=str_to_bool(cfg.get("qu_train_with_cobyla", False)),
             num_qnn_train_step=cfg.get("num_qnn_train_step", 12),
             generate_graph=generate_graph,
             run_dir=run_dir,
             with_general_interferometer=cfg.get("with_general_interferometer", False),
-            groupping=cfg.get("groupping", False),
-            use_fashion=cfg.get("use_fashion", False),
-            use_cifar=cfg.get("use_cifar", False),
+            groupping=str_to_bool(cfg.get("groupping", False)),
+            use_fashion=str_to_bool(cfg.get("use_fashion", False)),
+            use_cifar=str_to_bool(cfg.get("use_cifar", False)),
         )
     elif exp_to_run == "ABLATION":
         print("Running the ABLATION experiment")
@@ -84,15 +87,17 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
             bond_dimensions_to_test=bond_dimensions_to_test or list(range(1, 11)),
             num_training_rounds=cfg.get("num_training_rounds", 2),
             num_epochs=cfg.get("num_epochs", 5),
-            qu_train_with_cobyla=cfg.get("qu_train_with_cobyla", False),
+            qu_train_with_cobyla=str_to_bool(cfg.get("qu_train_with_cobyla", False)),
             num_qnn_train_step=cfg.get("num_qnn_train_step", 12),
             generate_graph=generate_graph,
             run_dir=run_dir,
-            with_general_interferometer=cfg.get("with_general_interferometer", False),
-            groupping=cfg.get("groupping", False),
-            use_fashion=cfg.get("use_fashion", False),
-            Haar_matrix_init=cfg.get("Haar_matrix_init", False),
-            use_cifar=cfg.get("use_cifar", False),
+            with_general_interferometer=str_to_bool(
+                cfg.get("with_general_interferometer", False)
+            ),
+            groupping=str_to_bool(cfg.get("groupping", False)),
+            use_fashion=str_to_bool(cfg.get("use_fashion", False)),
+            use_cifar=str_to_bool(cfg.get("use_cifar", False)),
+            Haar_matrix_init=str_to_bool(cfg.get("Haar_matrix_init", False)),
         )
     elif exp_to_run == "COMPRESSION":
         print("Running the COMPRESSION experiment")
@@ -101,13 +106,15 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
             num_training_rounds=cfg.get("num_training_rounds", 2),
             classical_epochs=cfg.get("classical_epochs", 2),
             num_epochs=cfg.get("num_epochs", 5),
-            qu_train_with_cobyla=cfg.get("qu_train_with_cobyla", False),
+            qu_train_with_cobyla=str_to_bool(cfg.get("qu_train_with_cobyla", False)),
             num_qnn_train_step=cfg.get("num_qnn_train_step", 12),
             generate_graph=generate_graph,
             run_dir=run_dir,
-            with_general_interferometer=cfg.get("with_general_interferometer", False),
-            groupping=cfg.get("groupping", False),
-            use_fashion=cfg.get("use_fashion", False),
+            with_general_interferometer=str_to_bool(
+                cfg.get("with_general_interferometer", False)
+            ),
+            groupping=str_to_bool(cfg.get("groupping", False)),
+            use_fashion=str_to_bool(cfg.get("use_fashion", False)),
         )
     else:
         raise NameError("No experiment with that name")

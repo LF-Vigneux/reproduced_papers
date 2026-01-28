@@ -250,7 +250,6 @@ def run_ablation_exp(
     loss_qt = []
     accuracy_qt = []
     params_qt = []
-
     _, _, train_loader, val_loader = create_datasets(
         batch_size=1000, use_fashion=use_fashion, use_CIFAR=use_cifar
     )
@@ -258,8 +257,10 @@ def run_ablation_exp(
     for bond in bond_dimensions_to_test:
         ### QTrain
         if use_cifar is True:
+
             classical_model = CIFARModel()
         else:
+
             classical_model = CNNModel()
         n_qubit, nw_list_normal = calculate_qubits(classical_model)
         bs = create_boson_samplers(

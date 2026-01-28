@@ -130,6 +130,7 @@ def create_datasets(
         Train dataset, validation dataset, train loader and validation loader.
     """
     if use_fashion is True:
+        print("Bad -f")
         train_dataset = MNIST_fashion(split="train")
         val_dataset = MNIST_fashion(split="val")
         train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
@@ -137,6 +138,7 @@ def create_datasets(
         return train_dataset, val_dataset, train_loader, val_loader
 
     if use_CIFAR is True:
+
         DATA_PATH = (script_dir / "data/DQNN").resolve()
         train_dataset = torchvision.datasets.CIFAR10(
             root=DATA_PATH,
@@ -173,6 +175,7 @@ def create_datasets(
     )
     train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size, shuffle=False)
+
     return train_dataset, val_dataset, train_loader, val_loader
 
 
@@ -326,6 +329,14 @@ def parse_args():
         help="Disable graph generation",
     )
     return parser.parse_args()
+
+
+def str_to_bool(s: str) -> bool:
+    if isinstance(s, bool):
+        return s
+    if s == "True":
+        return True
+    return False
 
 
 def plot_training_metrics(
