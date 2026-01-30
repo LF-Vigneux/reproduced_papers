@@ -100,7 +100,7 @@ def create_ablation_class(
 
     random_tensor = torch.randn(
         num_params, 1
-    )  # TODO FOr generalization, change to arbitrary size, here is the number of combinations of each BS (4 in 9) and (4 in 8)
+    )  # TODO For generalization, change to arbitrary size, here is the number of combinations of each BS (4 in 9) and (4 in 8)
 
     class AblationModule(nn.Module):
         """
