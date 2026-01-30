@@ -155,11 +155,10 @@ def create_ablation_class(
                     new_size = bs[0].embedding_size
                     for i in range(1, len(bs)):
                         new_size *= bs[i].embedding_size
-                        probs_ = (
-                            torch.outer(probs_, torch.flatten(bs[i].quantum_layer()))
-                            .flatten()
-                            .reshape(new_size, 1)
+                        outer_res = torch.outer(
+                            probs_, torch.flatten(bs[i].quantum_layer())
                         )
+                        probs_ = outer_res.flatten()
             if self.grouper is None:
                 probs_ = probs_[: len(nw_list_normal)]
                 probs_ = probs_.reshape(len(nw_list_normal), 1)

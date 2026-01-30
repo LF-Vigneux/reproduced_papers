@@ -115,7 +115,7 @@ def create_datasets(
     batch_size: int = 128,
     use_fashion: bool = False,
     use_CIFAR: bool = False,
-    max_items=6000,
+    max_items=8000,
 ) -> Tuple[Dataset, Dataset, DataLoader, DataLoader]:
     """
     Create MNIST train/validation datasets and data loaders.

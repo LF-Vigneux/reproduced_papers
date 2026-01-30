@@ -1,0 +1,35 @@
+{
+  "os": "macOS-26.2-arm64-arm-64bit",
+  "python": "CPython 3.12.12",
+  "startedAt": "2026-01-29T15:14:06.617226Z",
+  "program": "/Users/lfvigneux/Desktop/Unboarding/CIFAR-10.py",
+  "git": {
+    "remote": "https://github.com/LF-Vigneux/reproduced_papers.git",
+    "commit": "8ffb7680ddf23d7accba8bb24fc01b6eb5a215e6"
+  },
+  "email": "lfvigneux@gmail.com",
+  "root": "/Users/lfvigneux/Documents/GitHub/reproduced_papers",
+  "host": "LT-185-25-AP-Q.local",
+  "executable": "/Users/lfvigneux/miniconda3/envs/Quandela_1_test/bin/python",
+  "cpu_count": 10,
+  "cpu_count_logical": 10,
+  "disk": {
+    "/": {
+      "total": "494384795648",
+      "used": "105834414080"
+    }
+  },
+  "memory": {
+    "total": "17179869184"
+  },
+  "apple": {
+    "name": "Apple M4",
+    "ecpuCores": 6,
+    "pcpuCores": 4,
+    "gpuCores": 10,
+    "memoryGb": 16,
+    "swapTotalBytes": "3221225472",
+    "ramTotalBytes": "17179869184"
+  },
+  "writerId": "1jf4c1oqu11xejcidvdmul9x3y8rmfba"
+}

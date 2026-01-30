@@ -1,0 +1,39 @@
+Epoch 1 had a loss of 43.41036522388458 and accuracy of 0.1936
+Epoch 2 had a loss of 39.04425537586212 and accuracy of 0.2708
+Epoch 3 had a loss of 35.12649726867676 and accuracy of 0.35
+Epoch 4 had a loss of 32.750373005867004 and accuracy of 0.3924
+Epoch 5 had a loss of 30.753902316093445 and accuracy of 0.423
+Epoch 6 had a loss of 29.138462901115417 and accuracy of 0.448
+Epoch 7 had a loss of 27.975102305412292 and accuracy of 0.4724
+Epoch 8 had a loss of 26.843733429908752 and accuracy of 0.5044
+Epoch 9 had a loss of 25.936909437179565 and accuracy of 0.5162
+Epoch 10 had a loss of 24.433319807052612 and accuracy of 0.5464
+Epoch 11 had a loss of 23.28074073791504 and accuracy of 0.5822
+Epoch 12 had a loss of 22.957592368125916 and accuracy of 0.5802
+Epoch 13 had a loss of 21.53949201107025 and accuracy of 0.6098
+Epoch 14 had a loss of 20.220452427864075 and accuracy of 0.6428
+Epoch 15 had a loss of 19.19822508096695 and accuracy of 0.6534
+Epoch 16 had a loss of 17.500254034996033 and accuracy of 0.6808
+Epoch 17 had a loss of 16.550077438354492 and accuracy of 0.711
+Epoch 18 had a loss of 14.876390159130096 and accuracy of 0.7408
+Epoch 19 had a loss of 13.557721078395844 and accuracy of 0.7646
+Epoch 20 had a loss of 12.391751945018768 and accuracy of 0.7872
+Epoch 21 had a loss of 10.752102315425873 and accuracy of 0.8178
+Epoch 22 had a loss of 9.591018259525299 and accuracy of 0.8378
+Epoch 23 had a loss of 8.528317749500275 and accuracy of 0.861
+Epoch 24 had a loss of 7.6026667058467865 and accuracy of 0.8728
+Epoch 25 had a loss of 6.787858873605728 and accuracy of 0.8904
+Epoch 26 had a loss of 4.514456734061241 and accuracy of 0.9306
+Epoch 27 had a loss of 3.652240037918091 and accuracy of 0.9476
+Epoch 28 had a loss of 3.537182956933975 and accuracy of 0.9496
+Traceback (most recent call last):
+  File "/Users/lfvigneux/Desktop/Unboarding/CIFAR-10.py", line 159, in train
+    loss.backward()
+  File "/Users/lfvigneux/miniconda3/envs/Quandela_1_test/lib/python3.12/site-packages/torch/_tensor.py", line 521, in backward
+    torch.autograd.backward(
+  File "/Users/lfvigneux/miniconda3/envs/Quandela_1_test/lib/python3.12/site-packages/torch/autograd/__init__.py", line 289, in backward
+    _engine_run_backward(
+  File "/Users/lfvigneux/miniconda3/envs/Quandela_1_test/lib/python3.12/site-packages/torch/autograd/graph.py", line 768, in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
