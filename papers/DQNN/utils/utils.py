@@ -231,7 +231,7 @@ def parse_args():
         "--exp_to_run",
         type=str,
         default="DEFAULT",
-        help="Which experiment to run between 'DEFAULT', 'BOND', 'ABLATION' and COMPRESSION (default: 'DEFAULT')",
+        help="Which experiment to run between 'DEFAULT', 'BOND', 'ABLATION', 'COMPRESSION' and 'BOSON_SAMPLERS' (default: 'DEFAULT')",
     )
     parser.add_argument(
         "--bond_dim",
@@ -680,6 +680,115 @@ def plot_compression_exp(
     else:
         plt.savefig(
             run_dir / "compression_exp_graph.pdf",
+            format="pdf",
+            bbox_inches="tight",
+        )
+
+
+def plot_boson_samplers_exp(
+    params_qt: List[List[int]],
+    accuracy_qt: List[List[float]],
+    params_ablation: List[int],
+    accuracy_ablation: List[float],
+    run_dir: Path = None,
+):
+    """
+    Plot the ablation experiment results comparing photonic QT and the model with a lone MPS layer.
+
+    This function creates a plot showing the testing accuracy versus the number of trainable parameters
+    for both the photonic Quantum Train and the ablation study models. The plot is saved as a PDF file:
+    results/ablation_graph.pdf (or to run_dir if set).
+
+
+    Parameters
+    -----------
+    params_qt : List[int]
+        List of number of trainable parameters for the photonic QT models.
+    accuracy_qt : list
+        List of testing accuracies for the photonic QT models.
+    params_ablation : List[int]
+        List of number of trainable parameters for the ablation study models.
+    accuracy_ablation : List[float]
+        List of testing accuracies for the ablation study models.
+    run_dir : pathlib.Path, optional
+        Output directory for the PDF when running via the shared runtime. If None,
+        the plot is saved under the local results folder.
+
+    Returns
+    --------
+    None
+    """
+    plt.plot(
+        params_qt[0],
+        accuracy_qt[0],
+        linewidth=1.4,
+        markersize=6,
+        color="#1b9a81",
+        markerfacecolor="#1b9a81",
+        markeredgecolor="#1b9a81",
+        label="1 BS, no bunching",
+    )
+    plt.plot(
+        params_qt[1],
+        accuracy_qt[1],
+        linewidth=1.4,
+        markersize=6,
+        color="#589a1b",
+        markerfacecolor="#589a1b",
+        markeredgecolor="#589a1b",
+        label="2 BS, no bunching (regular)",
+    )
+    plt.plot(
+        params_qt[2],
+        accuracy_qt[2],
+        linewidth=1.4,
+        markersize=6,
+        color="#e17415",
+        markerfacecolor="#e17415",
+        markeredgecolor="#e17415",
+        label="3 BS, no bunching",
+    )
+    plt.plot(
+        params_qt[3],
+        accuracy_qt[3],
+        linewidth=1.4,
+        markersize=6,
+        color="#6a1b9a",
+        markerfacecolor="#6a1b9a",
+        markeredgecolor="#4a148c",
+        label="1 BS, bunching",
+    )
+    plt.plot(
+        params_ablation,
+        accuracy_ablation,
+        linewidth=1.4,
+        markersize=6,
+        color="#ff0000",
+        markerfacecolor="#ff0000",
+        markeredgecolor="#ff0000",
+        label="ablation study",
+    )
+
+    # Axes / styling to match the figure
+    plt.xlabel("# Trainable Parameters")
+    plt.ylabel("Testing Accuracy (%)")
+
+    plt.grid(True, which="major", linestyle=":", linewidth=0.9, alpha=0.6)
+
+    leg = plt.legend(loc="center right", frameon=True)
+    leg.get_frame().set_alpha(0.9)
+
+    plt.tight_layout()
+    if run_dir is None:
+        plt.savefig(
+            str(pathlib.Path(__file__).parent.parent.resolve())
+            + "/results/boson_samplers_graph.pdf",
+            format="pdf",
+            bbox_inches="tight",
+        )
+    else:
+        plt.savefig(
+            run_dir / "boson_samplers_graph.pdf",
             format="pdf",
             bbox_inches="tight",
         )

@@ -21,6 +21,7 @@ from papers.DQNN.lib.ablation_exp import run_ablation_exp
 from papers.DQNN.lib.bond_dimension_exp import run_bond_dimension_exp
 from papers.DQNN.lib.default_exp import run_default_exp
 from papers.DQNN.lib.compression_exp import run_compression_exp
+from papers.DQNN.lib.run_boson_samplers import run_boson_sampler_exp
 from papers.DQNN.utils.utils import str_to_bool
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -116,6 +117,24 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
             groupping=str_to_bool(cfg.get("groupping", False)),
             use_fashion=str_to_bool(cfg.get("use_fashion", False)),
         )
+    elif exp_to_run == "BOSON_SAMPLERS":
+        print("Running the BOSON_SAMPLERS experiment")
+        run_boson_sampler_exp(
+            bond_dimensions_to_test=bond_dimensions_to_test or list(range(1, 11)),
+            num_training_rounds=cfg.get("num_training_rounds", 2),
+            num_epochs=cfg.get("num_epochs", 5),
+            qu_train_with_cobyla=str_to_bool(cfg.get("qu_train_with_cobyla", False)),
+            num_qnn_train_step=cfg.get("num_qnn_train_step", 12),
+            generate_graph=generate_graph,
+            run_dir=run_dir,
+            with_general_interferometer=str_to_bool(
+                cfg.get("with_general_interferometer", False)
+            ),
+            groupping=str_to_bool(cfg.get("groupping", False)),
+            use_fashion=str_to_bool(cfg.get("use_fashion", False)),
+            use_cifar=str_to_bool(cfg.get("use_cifar", False)),
+            Haar_matrix_init=str_to_bool(cfg.get("Haar_matrix_init", False)),
+        )
     else:
         raise NameError("No experiment with that name")
 
@@ -172,6 +191,16 @@ def main():
             num_training_rounds=args.num_training_rounds,
             num_epochs=args.num_epochs,
             classical_epochs=args.classical_epochs,
+            qu_train_with_cobyla=args.qu_train_with_cobyla,
+            num_qnn_train_step=args.num_qnn_train_step,
+            generate_graph=not args.dont_generate_graph,
+        )
+    elif args.exp_to_run == "BOSON_SAMPLERS":
+        print("Running the BOSON_SAMPLERS experiment")
+        run_boson_sampler_exp(
+            bond_dimensions_to_test=args.bond_dimensions_to_test,
+            num_training_rounds=args.num_training_rounds,
+            num_epochs=args.num_epochs,
             qu_train_with_cobyla=args.qu_train_with_cobyla,
             num_qnn_train_step=args.num_qnn_train_step,
             generate_graph=not args.dont_generate_graph,

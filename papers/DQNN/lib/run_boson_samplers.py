@@ -39,7 +39,7 @@ from papers.DQNN.lib.model import (
 )
 from torch.func import functional_call
 from papers.DQNN.lib.boson_sampler import BosonSampler
-from papers.DQNN.utils.utils import plot_ablation_exp, create_datasets
+from papers.DQNN.utils.utils import plot_boson_samplers_exp, create_datasets
 
 
 from papers.DQNN.lib.torchmps import MPS
@@ -77,7 +77,8 @@ def create_ablation_class(
     """
     n_qubit, nw_list_normal = calculate_qubits(classical_model)
     num_params = 1
-    for i in bs:
+    bs_template = create_boson_samplers(nw_list_normal=nw_list_normal)
+    for i in bs_template:
         num_params *= comb(i.m, i.n)
         if Haar_matrix_init is True:
             input_state = i.m * [0]
@@ -192,7 +193,7 @@ def create_ablation_class(
     ).to(device)
 
 
-def run_ablation_exp(
+def run_boson_sampler_exp(
     bond_dimensions_to_test: List[int] = np.arange(2, 17),
     num_training_rounds: int = 2,
     num_epochs: int = 5,
@@ -239,12 +240,39 @@ def run_ablation_exp(
     """
     current_dir = str(Path(__file__).parent.parent.resolve()) + "/results/"
 
+    # loss_ablation_one_bs = []
+    # loss_ablation_two_bs = []
+    # loss_ablation_three_bs = []
+    # loss_ablation_no_bunching = []
+    # accuracy_ablation_one_bs = []
+    # accuracy_ablation_two_bs = []
+    # accuracy_ablation_three_bs = []
+    # accuracy_ablation_no_bunching = []
+    # params_ablation_one_bs = []
+    # params_ablation_two_bs = []
+    # params_ablation_three_bs = []
+    # params_ablation_no_bunching = []
+
+    # loss_qt_one_bs = []
+    # loss_qt_two_bs = []
+    # loss_qt_three_bs = []
+    # loss_qt_no_bunching = []
+    # accuracy_qt_one_bs = []
+    # accuracy_qt_two_bs = []
+    # accuracy_qt_three_bs = []
+    # accuracy_qt_no_bunching = []
+    # params_qt_one_bs = []
+    # params_qt_two_bs = []
+    # params_qt_three_bs = []
+    # params_qt_no_bunching = []
+
     loss_ablation = []
     accuracy_ablation = []
     params_ablation = []
-    loss_qt = []
-    accuracy_qt = []
-    params_qt = []
+    loss_qt = [[], [], [], []]
+    accuracy_qt = [[], [], [], []]
+    params_qt = [[], [], [], []]
+
     _, _, train_loader, val_loader = create_datasets(
         batch_size=1000, use_fashion=use_fashion, use_CIFAR=use_cifar
     )
@@ -258,24 +286,11 @@ def run_ablation_exp(
 
             classical_model = CNNModel()
         n_qubit, nw_list_normal = calculate_qubits(classical_model)
-        bs = create_boson_samplers(
-            nw_list_normal, with_general_interferometer=with_general_interferometer
-        )
-        embedding_size = bs[0].embedding_size
-        for i in range(1, len(bs)):
-            embedding_size *= bs[i].embedding_size
-        qt_model = PhotonicQuantumTrain(
-            n_qubit,
-            bond_dim=bond,
-            groupping=groupping,
-            nw_list_normal=nw_list_normal,
-            embedding_size=embedding_size,
-        ).to(device)
 
         ### Ablation
         ablation_model = create_ablation_class(
             bond=bond,
-            bs=bs,
+            bs=None,
             classical_model=CIFARModel() if use_cifar is True else CNNModel(),
             groupping=groupping,
             Haar_matrix_init=Haar_matrix_init,
@@ -292,7 +307,12 @@ def run_ablation_exp(
 
         optimizer = optim.Adam(ablation_model.parameters(), lr=step)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode="min", factor=0.5, patience=5, cooldown=2, threshold=0.01
+            optimizer,
+            mode="min",
+            factor=0.5,
+            patience=5,
+            cooldown=2,
+            threshold=0.01,
         )
 
         # Training loop for the ablation
@@ -345,62 +365,104 @@ def run_ablation_exp(
         acc_ab, loss_ab = evaluate_classical_model(
             ablation_model, val_loader, classical_model=classical_model
         )
-
-        ################################################################################################################################
-        print("QTrain")
-
-        qt_model, qnn_parameters_qt, _, _ = train_quantum_model(
-            qt_model,
-            classical_model,
-            train_loader,
-            train_loader,
-            bs,
-            n_qubit,
-            nw_list_normal,
-            num_training_rounds=num_training_rounds,
-            num_epochs=num_epochs,
-            qu_train_with_cobyla=qu_train_with_cobyla,
-            num_qnn_train_step=num_qnn_train_step,
-        )
-
-        accuracy_test, loss_test, _ = evaluate_model(
-            qt_model,
-            classical_model,
-            train_loader,
-            val_loader,
-            bs,
-            n_qubit,
-            nw_list_normal,
-            qnn_parameters_qt,
-        )
-
-        num_trainable_params_qt = sum(
-            p.numel() for p in qt_model.parameters() if p.requires_grad
-        )
-
-        # Save results
-        params_qt.append(
-            num_trainable_params_qt + np.sum([i.num_effective_params for i in bs])
-        )
-        loss_qt.append(loss_test)
-        accuracy_qt.append(accuracy_test)
-
         loss_ablation.append(loss_ab)
         accuracy_ablation.append(acc_ab)
+        ################################################################################################################################
+        print("QTrain")
+        for strategy_to_test in range(4):
+            print(
+                f" ------------- Running strategy {strategy_to_test+1} --------------"
+            )
+            if strategy_to_test == 0:
+                bs = [
+                    BosonSampler(
+                        m=16,
+                        n=6,
+                        with_general_interferometer=with_general_interferometer,
+                    )
+                ]
+            elif strategy_to_test == 1:
+                bs = create_boson_samplers(
+                    nw_list_normal,
+                    with_general_interferometer=with_general_interferometer,
+                )
+            elif strategy_to_test == 2:
+                bs = [
+                    BosonSampler(
+                        m=6,
+                        n=3,
+                        with_general_interferometer=with_general_interferometer,
+                    )
+                ] * 3
+            else:
+                bs = [
+                    BosonSampler(
+                        m=11,
+                        n=6,
+                        with_general_interferometer=with_general_interferometer,
+                        no_bunching=False,
+                    )
+                ]
+            embedding_size = bs[0].embedding_size
+            for i in range(1, len(bs)):
+                embedding_size *= bs[i].embedding_size
+            qt_model = PhotonicQuantumTrain(
+                n_qubit,
+                bond_dim=bond,
+                groupping=groupping,
+                nw_list_normal=nw_list_normal,
+                embedding_size=embedding_size,
+            ).to(device)
+
+            qt_model, qnn_parameters_qt, _, _ = train_quantum_model(
+                qt_model,
+                classical_model,
+                train_loader,
+                train_loader,
+                bs,
+                n_qubit,
+                nw_list_normal,
+                num_training_rounds=num_training_rounds,
+                num_epochs=num_epochs,
+                qu_train_with_cobyla=qu_train_with_cobyla,
+                num_qnn_train_step=num_qnn_train_step,
+            )
+
+            accuracy_test, loss_test, _ = evaluate_model(
+                qt_model,
+                classical_model,
+                train_loader,
+                val_loader,
+                bs,
+                n_qubit,
+                nw_list_normal,
+                qnn_parameters_qt,
+            )
+
+            num_trainable_params_qt = sum(
+                p.numel() for p in qt_model.parameters() if p.requires_grad
+            )
+
+            # Save results
+            params_qt[strategy_to_test].append(
+                num_trainable_params_qt + np.sum([i.num_effective_params for i in bs])
+            )
+            loss_qt[strategy_to_test].append(loss_test)
+            accuracy_qt[strategy_to_test].append(accuracy_test)
 
         json_payload = {
-            "loss_qt": [float(v) for v in loss_qt],
-            "accuracy_qt": [float(v) for v in accuracy_qt],
-            "params_qt": [int(v) for v in params_qt],
+            "loss_qt": [[float(v) for v in t] for t in loss_qt],
+            "accuracy_qt": [[float(v) for v in t] for t in accuracy_qt],
+            "params_qt": [[float(v) for v in t] for t in params_qt],
             "loss_ablation": [float(v) for v in loss_ablation],
             "accuracy_ablation": [float(v) for v in accuracy_ablation],
             "params_ablation": [int(v) for v in params_ablation],
         }
         json_str = json.dumps(json_payload, indent=4)
-        with open(current_dir + "ablation_data.json", "w") as f:
+        with open(current_dir + "boson_samplers_data.json", "w") as f:
             f.write(json_str)
     if generate_graph is True:
-        plot_ablation_exp(
+        plot_boson_samplers_exp(
             params_qt=params_qt,
             accuracy_qt=accuracy_qt,
             params_ablation=params_ablation,

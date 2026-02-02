@@ -227,10 +227,29 @@ def train_quantum_model(
 
     criterion = nn.CrossEntropyLoss()
     optimizer_mapping = optim.Adam(qt_model.parameters(), lr=step)
+    scheduler_mapping = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer_mapping,
+        mode="min",
+        factor=0.5,
+        patience=5,
+        cooldown=2,
+        threshold=0.01,
+    )
     if not qu_train_with_cobyla:
         optimizers = []
+        schedulers = []
         for i in bs:
             optimizers.append(optim.Adam(i.quantum_layer.parameters(), lr=step))
+            schedulers.append(
+                optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizers[-1],
+                    mode="min",
+                    factor=0.5,
+                    patience=5,
+                    cooldown=2,
+                    threshold=0.01,
+                )
+            )
 
     num_trainable_params = sum(
         p.numel() for p in qt_model.parameters() if p.requires_grad
@@ -298,6 +317,7 @@ def train_quantum_model(
                     )
 
             train_loss /= len(train_loader)
+            scheduler_mapping.step(train_loss)
 
         # QNN parameter optimization using scipy minimize (like in ref.ipynb)
         if qu_train_with_cobyla:
@@ -428,6 +448,8 @@ def train_quantum_model(
 
             loss_list_epoch.append(float(loss.item()))
             acc_list_epoch.append(float(acc))
+            for scheduler in schedulers:
+                scheduler.step(float(loss.item()))
 
     return qt_model, qnn_parameters, loss_list_epoch, acc_list_epoch
 

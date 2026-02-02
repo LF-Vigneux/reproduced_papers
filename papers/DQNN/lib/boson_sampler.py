@@ -32,6 +32,7 @@ class BosonSampler:
         n: int,
         qnn_layers: int = 1,
         with_general_interferometer: bool = False,
+        no_bunching: bool = True,
     ):
         """
         Initialize the boson sampler and create its quantum layer.
@@ -53,8 +54,10 @@ class BosonSampler:
         self.quantum_layer = self.create_quantum_layer(
             qnn_layers=qnn_layers,
             with_general_interferometer=with_general_interferometer,
+            no_bunching=no_bunching,
         )
         self.quantum_layer
+        self.no_bunching = no_bunching
 
     @property
     def _nb_parameters_needed(self) -> int:
@@ -94,7 +97,11 @@ class BosonSampler:
             Number of output probabilities for the Fock basis.
         """
 
-        return comb(self.m, self.n)
+        return (
+            comb(self.m, self.n)
+            if self.no_bunching is True
+            else comb(self.m + self.n - 1, self.n)
+        )
 
     def create_quantum_circuit(self, qnn_layers: int = 1) -> pcvl.Circuit:
         """
@@ -155,7 +162,10 @@ class BosonSampler:
         return circuit
 
     def create_quantum_layer(
-        self, qnn_layers: int = 1, with_general_interferometer: bool = False
+        self,
+        qnn_layers: int = 1,
+        with_general_interferometer: bool = False,
+        no_bunching: bool = True,
     ) -> ML.QuantumLayer:
         """
         Create the QuantumLayer wrapper for the parameterized circuit.
@@ -185,7 +195,11 @@ class BosonSampler:
                 n_photons=self.n,
                 builder=circuit,
                 input_state=input_state,
-                computation_space=ML.ComputationSpace.UNBUNCHED,
+                computation_space=(
+                    ML.ComputationSpace.UNBUNCHED
+                    if no_bunching is True
+                    else ML.ComputationSpace.FOCK
+                ),
             )
             self.num_effective_params = 0
             for i in output.parameters():
@@ -204,7 +218,11 @@ class BosonSampler:
                 circuit=circuit,
                 input_state=input_state,
                 trainable_parameters=parameters,
-                computation_space=ML.ComputationSpace.UNBUNCHED,
+                computation_space=(
+                    ML.ComputationSpace.UNBUNCHED
+                    if no_bunching is True
+                    else ML.ComputationSpace.FOCK
+                ),
             )
 
     def set_params(self, params: torch.Tensor) -> None:
