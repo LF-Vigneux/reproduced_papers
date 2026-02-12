@@ -270,3 +270,97 @@ class DenseAmplitudeEncoder(nn.Module):
 
     def __repr__(self):
         return "DenseAmplitudeEncoder()"
+
+
+class TimeEvolutionEncoder(nn.Module):
+    def __init__(
+        self,
+        n_modes: int,
+        n_photons: int,
+        time: float = 0.1,
+        computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
+    ):
+        """
+        n_modes is one size of the image
+        """
+        super().__init__()
+        self.time = time
+        self.n_photons = n_photons
+        self.n_modes = n_modes
+        self.computation_space = computation_space
+
+        base_circuit = ml.CircuitBuilder(n_modes=n_modes)
+        base_circuit.add_entangling_layer()
+        self.base_percveval = base_circuit.to_pcvl_circuit()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 2:
+            x = x.unsqueeze(0)
+
+        output_tensors = torch.empty(
+            (x.shape[0], x.shape[1], x.shape[1]),
+            dtype=complex,
+        )
+
+        for i, tensor in enumerate(x):
+
+            total_circuit = self.base_percveval.copy()
+            total_circuit.add(unitary_evolution(tensor, self.time))
+            total_circuit = ml.CircuitBuilder.from_circuit(total_circuit)
+            qlayer = ml.QuantumLayer(
+                builder=total_circuit,
+                n_photons=self.n_photons,
+                measurement_strategy=ml.MeasurementStrategy.AMPLITUDES,
+                computation_space=self.computation_space,
+            )
+            state = qlayer(tensor)
+
+            output_tensors[i] = torch.outer(state, state.resolve_conj())
+
+        return output_tensors
+
+    def __repr__(self):
+        return "TimeEvolutionEncoder()"
+
+
+class FourierEncoder(nn.Module):
+    def __init__(
+        self,
+        num_features: int,
+        n_photon_per_feature: int,
+    ):
+        """
+        n_modes is one size of the image
+        """
+        super().__init__()
+        self.num_features = num_features
+        self.n_photon_per_feature = n_photon_per_feature
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+        if x.dim() > 2:
+            x = x.reshape(x.shape[0], np.prod(x.shape[1:]))
+
+        output_tensors = torch.empty(
+            (x.shape[0], x.shape[1], x.shape[1]),
+            dtype=complex,
+        )
+
+        for i, tensor in enumerate(x):
+            total_circuit = ml.CircuitBuilder.from_circuit(
+                fourier_basis(tensor, num_qubits_per_feature=self.n_photon_per_feature)
+            )
+            qlayer = ml.QuantumLayer(
+                builder=total_circuit,
+                measurement_strategy=ml.MeasurementStrategy.AMPLITUDES,
+                computation_space=ml.ComputationSpace.DUAL_RAIL,
+            )
+            state = qlayer(tensor)
+
+            output_tensors[i] = torch.outer(state, state.resolve_conj())
+
+        return output_tensors
+
+    def __repr__(self):
+        return "FourierEncoder()"
