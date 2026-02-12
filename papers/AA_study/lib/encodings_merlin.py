@@ -6,6 +6,8 @@ from numpy.typing import NDArray
 import scipy as sp
 from pathlib import Path
 import sys
+import torch
+import torch.nn as nn
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -153,3 +155,44 @@ def fourier_basis(features: list[float], num_qubits_per_feature: int):
         mode_index += num_qubits_per_feature * 2
 
     return main_circuit
+
+
+class AngleEncoder(nn.Module):
+    def __init__(
+        self,
+        num_features: int,
+        num_photons: int,
+    ):
+        super().__init__()
+        self.num_features = num_features
+        self.num_photons = num_photons
+        circuit = ml.CircuitBuilder(n_modes=num_features)
+        circuit.add_entangling_layer()
+        circuit.add_angle_encoding()
+        circuit.add_entangling_layer()
+        self.qlayer = ml.QuantumLayer(
+            builder=circuit,
+            n_photons=num_photons,
+            measurement_strategy=ml.MeasurementStrategy.AMPLITUDES,
+            computation_space=ml.ComputationSpace.UNBUNCHED,
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+        if x.dim() > 2:
+            x = x.reshape(x.shape[0], np.prod(x.shape[1:]))
+
+        amplitudes_output = self.qlayer(x)
+
+        output_tensors = torch.empty(
+            (x.shape[0], amplitudes_output.shape[1] * amplitudes_output.shape[1]),
+            dtype=complex,
+        )
+        for amplitude in amplitudes_output:
+            output_tensors[0] = torch.outer(amplitude, amplitude.resolve_conj())
+
+        return output_tensors
+
+    def __repr__(self):
+        return "OneHotEncoder()"
