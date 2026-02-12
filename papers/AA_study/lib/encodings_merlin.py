@@ -16,9 +16,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from papers.AA_study.utils.qlayers_utils import generate_fourrier_sub_matrix, MZI
 
-
-# TODO
-
 # All the encodings must return a density matrix after a forward.
 
 """
@@ -186,7 +183,7 @@ class AngleEncoder(nn.Module):
         amplitudes_output = self.qlayer(x)
 
         output_tensors = torch.empty(
-            (x.shape[0], amplitudes_output.shape[1] * amplitudes_output.shape[1]),
+            (x.shape[0], amplitudes_output.shape[1], amplitudes_output.shape[1]),
             dtype=complex,
         )
         for amplitude in amplitudes_output:
@@ -208,13 +205,9 @@ class DenseAngleEncoder(nn.Module):
 
         self.num_features = num_features
         perceval_circuit = dense_angle_encoding_circuit(num_features=num_features)
-        q_layer_circuit = ml.CircuitBuilder(n_modes=perceval_circuit.m)
-        q_layer_circuit.add_entangling_layer()
-        q_layer_circuit = q_layer_circuit.from_circuit(perceval_circuit)
-        q_layer_circuit.add_entangling_layer()
 
         self.qlayer = ml.QuantumLayer(
-            builder=q_layer_circuit,
+            circuit=perceval_circuit,
             measurement_strategy=ml.MeasurementStrategy.AMPLITUDES,
             computation_space=ml.ComputationSpace.DUAL_RAIL,
             input_parameters=[f"phi{i:0{width}d}" for i in range(num_features)],
@@ -229,13 +222,51 @@ class DenseAngleEncoder(nn.Module):
         amplitudes_output = self.qlayer(x)
 
         output_tensors = torch.empty(
-            (x.shape[0], amplitudes_output.shape[1] * amplitudes_output.shape[1]),
+            (x.shape[0], amplitudes_output.shape[1], amplitudes_output.shape[1]),
             dtype=complex,
         )
-        for amplitude in amplitudes_output:
-            output_tensors[0] = torch.outer(amplitude, amplitude.resolve_conj())
+        for i, amplitude in enumerate(amplitudes_output):
+            output_tensors[i] = torch.outer(amplitude, amplitude.resolve_conj())
 
         return output_tensors
 
     def __repr__(self):
-        return "AngleEncoder()"
+        return "DenseAngleEncoder()"
+
+
+class DenseAmplitudeEncoder(nn.Module):
+    def __init__(
+        self,
+        num_modes: int,
+        computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
+        num_photons: int = 0,
+    ):
+        super().__init__()
+        self.num_modes = num_modes
+        self.num_photons = num_photons
+        self.computation_space = computation_space
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+        if x.dim() > 2:
+            x = x.reshape(x.shape[0], np.prod(x.shape[1:]))
+
+        output_tensors = torch.empty(
+            (x.shape[0], x.shape[1], x.shape[1]),
+            dtype=complex,
+        )
+
+        for i, tensor in enumerate(x):
+            state = dense_encoding_of_features(
+                tensor,
+                self.num_modes,
+                computation_space=self.computation_space,
+                num_photons=self.num_photons,
+            )
+            output_tensors[i] = torch.outer(state, state.resolve_conj())
+
+        return output_tensors
+
+    def __repr__(self):
+        return "DenseAmplitudeEncoder()"
