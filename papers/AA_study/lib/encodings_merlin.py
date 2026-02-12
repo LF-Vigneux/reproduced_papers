@@ -33,7 +33,7 @@ Classes:
 """
 
 
-def dense_angle_encodding_circuit(
+def dense_angle_encoding_circuit(
     num_features: int, param_prefix: str = "phi"
 ) -> pcvl.Circuit:
     """
@@ -195,4 +195,47 @@ class AngleEncoder(nn.Module):
         return output_tensors
 
     def __repr__(self):
-        return "OneHotEncoder()"
+        return "AngleEncoder()"
+
+
+class DenseAngleEncoder(nn.Module):
+    def __init__(
+        self,
+        num_features: int,
+    ):
+        super().__init__()
+        width = len(str(num_features - 1))
+
+        self.num_features = num_features
+        perceval_circuit = dense_angle_encoding_circuit(num_features=num_features)
+        q_layer_circuit = ml.CircuitBuilder(n_modes=perceval_circuit.m)
+        q_layer_circuit.add_entangling_layer()
+        q_layer_circuit = q_layer_circuit.from_circuit(perceval_circuit)
+        q_layer_circuit.add_entangling_layer()
+
+        self.qlayer = ml.QuantumLayer(
+            builder=q_layer_circuit,
+            measurement_strategy=ml.MeasurementStrategy.AMPLITUDES,
+            computation_space=ml.ComputationSpace.DUAL_RAIL,
+            input_parameters=[f"phi{i:0{width}d}" for i in range(num_features)],
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+        if x.dim() > 2:
+            x = x.reshape(x.shape[0], np.prod(x.shape[1:]))
+
+        amplitudes_output = self.qlayer(x)
+
+        output_tensors = torch.empty(
+            (x.shape[0], amplitudes_output.shape[1] * amplitudes_output.shape[1]),
+            dtype=complex,
+        )
+        for amplitude in amplitudes_output:
+            output_tensors[0] = torch.outer(amplitude, amplitude.resolve_conj())
+
+        return output_tensors
+
+    def __repr__(self):
+        return "AngleEncoder()"
