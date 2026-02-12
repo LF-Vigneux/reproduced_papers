@@ -2,6 +2,17 @@ import numpy as np
 import merlin as ml
 import perceval as pcvl
 import math
+from numpy.typing import NDArray
+import scipy as sp
+from pathlib import Path
+import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from papers.AA_study.utils.qlayers_utils import generate_fourrier_sub_matrix, MZI
 
 
 # TODO
@@ -70,6 +81,75 @@ def dense_encoding_of_features(
             state[state_index] = (
                 features[feature_index] + 1.0j * features[feature_index + 1]
             )
-
     state /= np.linalg.norm(state)
     return state
+
+
+# def unitary_evoution(
+#     features_matrix: NDArray[np.float128],
+#     num_modes: int,
+#     time: float,
+#     num_photons: int = 0,
+#     computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
+# ) -> pcvl.Circuit:
+#     if computation_space == ml.ComputationSpace.UNBUNCHED:
+#         size = math.comb(num_modes, num_photons)
+#     elif computation_space == ml.ComputationSpace.FOCK:
+#         size = math.comb(num_modes + num_photons - 1, num_photons)
+#     elif computation_space == ml.ComputationSpace.DUAL_RAIL:
+#         size = 2**num_modes
+#     else:
+#         raise ValueError("Invalid computation space")
+
+#     unitary_to_apply = np.zeros([size, size], dtype=complex)
+
+#     feature_size = np.shape(features_matrix)[0]
+
+#     unitary_to_apply[size - feature_size :, 0:feature_size] = features_matrix
+#     unitary_to_apply[0:feature_size, size - feature_size :] = (
+#         features_matrix.conjugate().T
+#     )
+#     unitary_to_apply = pcvl.Matrix(unitary_to_apply)
+
+#     circuit = pcvl.Circuit(m=num_modes)
+#     pass
+
+
+def unitary_evolution(
+    features_matrix: NDArray[np.float128],
+    time: float,
+) -> pcvl.Circuit:
+
+    feature_size = np.shape(features_matrix)[0]
+
+    unitary_to_apply = np.zeros([feature_size * 2, feature_size * 2], dtype=complex)
+
+    unitary_to_apply[feature_size:, :feature_size] = features_matrix
+    unitary_to_apply[:feature_size, feature_size:] = features_matrix.conjugate().T
+    unitary_to_apply = pcvl.Matrix(sp.linalg.expm(time * 1.0j * unitary_to_apply))
+
+    return pcvl.Circuit.decomposition(
+        unitary_to_apply, MZI, shape=pcvl.InterferometerShape.TRIANGLE
+    )
+
+
+def fourier_basis(features: list[float], num_qubits_per_feature: int):
+
+    main_circuit = pcvl.Circuit(m=len(features) * num_qubits_per_feature * 2)
+    mode_index = 0
+    for feature in features:
+        unitary_to_apply = pcvl.Matrix(
+            generate_fourrier_sub_matrix(
+                feature=feature, num_photons=num_qubits_per_feature
+            )
+        )
+        main_circuit.add(
+            [i for i in range(mode_index, mode_index + num_qubits_per_feature * 2)],
+            pcvl.Circuit.decomposition(
+                unitary_to_apply, MZI, shape=pcvl.InterferometerShape.TRIANGLE
+            ),
+        )
+
+        mode_index += num_qubits_per_feature * 2
+
+    return main_circuit

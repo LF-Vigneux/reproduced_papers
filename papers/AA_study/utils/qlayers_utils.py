@@ -1,5 +1,8 @@
 import sys
 from pathlib import Path
+from numpy.typing import NDArray
+import numpy as np
+import perceval as pcvl
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -10,6 +13,14 @@ import math
 import torch
 from photonic_QCNN.lib.src.qcnn_paper import (  # noqa: E402
     generate_all_fock_states_list,
+)
+
+
+MZI = (
+    pcvl.components.BS()
+    // (0, pcvl.components.PS(pcvl.Parameter("phi1")))
+    // pcvl.components.BS()
+    // (0, pcvl.components.PS(pcvl.Parameter("phi2")))
 )
 
 
@@ -83,3 +94,42 @@ def partial_measurement_output_size(subset: int, n: int, total_modes: int) -> in
     else:
         # Partial measurement: sum over all valid photon counts in measured modes
         return sum(math.comb(subset + i - 1, i) for i in range(n + 1))
+
+
+def generate_fourrier_sub_matrix(feature: float, num_photons: int) -> NDArray:
+    """
+    The / in exp is just j insted of n-j to take for account the end swap
+    """
+
+    def _generate_fourrier_sub_matrix(
+        num_photons_done: int = 0, matrix: NDArray | None = None
+    ):
+        if num_photons_done == num_photons:
+            return matrix
+
+        if num_photons_done == 0:
+            matrix = np.array(
+                [
+                    [1, 1],
+                    [
+                        np.exp(1.0j * 2 * np.pi * feature),
+                        (-1) * np.exp(1.0j * 2 * np.pi * feature),
+                    ],
+                ]
+            )
+            return _generate_fourrier_sub_matrix(num_photons_done=1, matrix=matrix)
+
+        matrix_to_tensor = np.array(
+            [
+                [1, 1],
+                [
+                    np.exp(1.0j * 2 * np.pi * feature / (2**num_photons_done)),
+                    (-1) * np.exp(1.0j * 2 * np.pi * feature / (2**num_photons_done)),
+                ],
+            ]
+        )
+        return _generate_fourrier_sub_matrix(
+            num_photons_done=1, matrix=np.kron(matrix, matrix_to_tensor)
+        )
+
+    return _generate_fourrier_sub_matrix()
