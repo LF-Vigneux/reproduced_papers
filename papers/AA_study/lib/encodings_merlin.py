@@ -15,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from photonic_QCNN.lib.src.qcnn_paper import OneHotEncoder  # noqa: E402
 from papers.AA_study.utils.qlayers_utils import generate_fourrier_sub_matrix, MZI
 
 
@@ -439,3 +440,26 @@ class FourierEncoder(nn.Module):
 
     def __repr__(self):
         return "FourierEncoder()"
+
+
+def choose_encoding(
+    encoding_name: str,
+    num_photons: int | None = None,
+    num_modes: int | None = None,
+    num_features: int | None = None,
+    computation_space=ml.ComputationSpace.UNBUNCHED,
+) -> tuple[
+    AngleEncoder
+    | DenseAngleEncoder
+    | AmplitudeEncoder
+    | DenseAmplitudeEncoder
+    | TimeEvolutionEncoder
+    | FourierEncoder
+    | OneHotEncoder,
+    int,
+]:
+    if encoding_name == "OneHot":
+        return OneHotEncoder(), 0
+    elif encoding_name == "Angle":
+        return AngleEncoder(num_features=num_modes)
+    pass

@@ -11,9 +11,8 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from papers.AA_study.utils.utils import find_mode_photon_config  # noqa: E402
-from photonic_QCNN.lib.src.qcnn_paper import (  # noqa: E402
+from papers.photonic_QCNN.lib.src.qcnn_paper import (  # noqa: E402
     Measure,
-    OneHotEncoder,
     QConv2d,
     QDense,
     QPooling,
@@ -226,53 +225,3 @@ class PhotonicQCNN(nn.Module):
         output = output * 66
 
         return output
-
-
-class Readout(nn.Module):
-    def __init__(self, list_label_0):
-        super().__init__()
-        self.list_label_0 = list_label_0
-        self.list_label_1 = []
-        self.initialize_labels()
-
-    def forward(self, proba, keys):
-        """
-        proba: (batch_size, num_states)
-        keys: list/tuple of mode indices corresponding to columns in proba
-        """
-        device = proba.device
-        dtype = proba.dtype
-
-        # Build masks for the two label groups
-        mask_0 = torch.tensor(
-            [k in self.list_label_0 for k in keys], device=device, dtype=dtype
-        )  # shape (num_modes,)
-        mask_1 = torch.tensor(
-            [k in self.list_label_1 for k in keys], device=device, dtype=dtype
-        )
-
-        # Compute sums over the masked columns
-        proba_0 = (proba * mask_0).sum(dim=1)  # shape (batch_size,)
-        proba_1 = (proba * mask_1).sum(dim=1)
-
-        total = proba_0 + proba_1
-        out = torch.stack([proba_0, proba_1], dim=1) / total.unsqueeze(
-            1
-        )  # shape (batch_size, 2)
-
-        return out
-
-    def initialize_labels(self):
-        modes = list(range(6))  # modes 0, 1, 2, 3, 4, 5
-        pairs = list(itertools.combinations(modes, 2))  # 15 of them
-        binary_pairs = []
-        for i, j in pairs:
-            vec = [0] * 6
-            vec[i] = 1
-            vec[j] = 1
-            binary_pairs.append(tuple(vec))
-
-        for binary_pair in binary_pairs:
-            if binary_pair not in self.list_label_0:
-                self.list_label_1.append(binary_pair)
-        return
