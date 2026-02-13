@@ -11,7 +11,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import math
 import torch
-from photonic_QCNN.lib.src.qcnn_paper import (  # noqa: E402
+from papers.photonic_QCNN.lib.src.qcnn_paper import (  # noqa: E402
     generate_all_fock_states_list,
 )
 
@@ -129,7 +129,8 @@ def generate_fourrier_sub_matrix(feature: float, num_photons: int) -> NDArray:
             ]
         )
         return _generate_fourrier_sub_matrix(
-            num_photons_done=1, matrix=np.kron(matrix, matrix_to_tensor)
+            num_photons_done=num_photons_done + 1,
+            matrix=np.kron(matrix, matrix_to_tensor),
         )
 
-    return _generate_fourrier_sub_matrix()
+    return (1 / (2 ** (num_photons / 2))) * _generate_fourrier_sub_matrix()

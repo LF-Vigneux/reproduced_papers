@@ -84,51 +84,29 @@ def dense_encoding_of_features(
     return state
 
 
-# def unitary_evoution(
-#     features_matrix: NDArray[np.float128],
-#     num_modes: int,
-#     time: float,
-#     num_photons: int = 0,
-#     computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
-# ) -> pcvl.Circuit:
-#     if computation_space == ml.ComputationSpace.UNBUNCHED:
-#         size = math.comb(num_modes, num_photons)
-#     elif computation_space == ml.ComputationSpace.FOCK:
-#         size = math.comb(num_modes + num_photons - 1, num_photons)
-#     elif computation_space == ml.ComputationSpace.DUAL_RAIL:
-#         size = 2**num_modes
-#     else:
-#         raise ValueError("Invalid computation space")
-
-#     unitary_to_apply = np.zeros([size, size], dtype=complex)
-
-#     feature_size = np.shape(features_matrix)[0]
-
-#     unitary_to_apply[size - feature_size :, 0:feature_size] = features_matrix
-#     unitary_to_apply[0:feature_size, size - feature_size :] = (
-#         features_matrix.conjugate().T
-#     )
-#     unitary_to_apply = pcvl.Matrix(unitary_to_apply)
-
-#     circuit = pcvl.Circuit(m=num_modes)
-#     pass
-
-
 def unitary_evolution(
-    features_matrix: NDArray[np.float128],
+    features_matrix: NDArray[np.float16],
     time: float,
 ) -> pcvl.Circuit:
+    """
+    One mode per feature
+    """
 
     feature_size = np.shape(features_matrix)[0]
 
     unitary_to_apply = np.zeros([feature_size * 2, feature_size * 2], dtype=complex)
 
-    unitary_to_apply[feature_size:, :feature_size] = features_matrix
-    unitary_to_apply[:feature_size, feature_size:] = features_matrix.conjugate().T
-    unitary_to_apply = pcvl.Matrix(sp.linalg.expm(time * 1.0j * unitary_to_apply))
+    unitary_to_apply[feature_size:, :feature_size] = features_matrix.conjugate().T
+    unitary_to_apply[:feature_size, feature_size:] = features_matrix
+    unitary_to_apply = pcvl.Matrix(
+        sp.linalg.expm((-1) * time * 1.0j * unitary_to_apply)
+    )
 
     return pcvl.Circuit.decomposition(
-        unitary_to_apply, MZI, shape=pcvl.InterferometerShape.TRIANGLE
+        unitary_to_apply,
+        MZI,
+        phase_shifter_fn=pcvl.PS,
+        shape=pcvl.InterferometerShape.TRIANGLE,
     )
 
 
