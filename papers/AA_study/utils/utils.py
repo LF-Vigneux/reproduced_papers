@@ -398,4 +398,10 @@ def parse_args():
         action="store_true",
         help="Disable graph generation",
     )
+    parser.add_argument(
+        "--encoding_name",
+        type=str,
+        default="OneHot",
+        help="Encoding strategy for the MerLin QCNN (default: `OneHot`)",
+    )
     return parser.parse_args()

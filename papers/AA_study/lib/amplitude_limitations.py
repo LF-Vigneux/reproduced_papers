@@ -2,7 +2,7 @@ import json
 import sys
 from copy import deepcopy
 from pathlib import Path
-
+import merlin as ml
 import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -453,30 +453,52 @@ def reproduce_fig_7(
     batch_size: int = 50,
     num_epochs: int = 1000,
     lr: float = 0.01,
+    encoding_name: str = "OneHot",
+    num_photons: int = 0,
+    num_modes: int = 0,
+    num_features: int = 0,
+    time: float = 0.0,
+    computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
     run_dir: Path = None,
 ):
     """
-    Reproduce Fig. 7 by training Qiskit and Merlin QCNN models across different sample sizes.
+    Reproduce Fig. 7 by training Qiskit and Merlin QCNN models over multiple
+    sample sizes for a selected binary dataset.
 
     Parameters
     ----------
     dataset_to_run : str, optional
-        Dataset name (e.g., "MNIST").
+        Dataset name passed to ``get_binary_dataset`` (for example ``"MNIST"``).
     sample_size_per_class : list[int], optional
-        Sample sizes per class to evaluate.
+        Number of training samples per class to evaluate. If ``None``, uses
+        ``[1, 10, 100, 1000]``.
     batch_size : int, optional
-        Training batch size.
+        Mini-batch size for train and test loaders.
     num_epochs : int, optional
-        Number of training epochs.
+        Number of optimization epochs for each model and sample size.
     lr : float, optional
-        Learning rate.
+        Learning rate used by ``basic_model_training``.
+    encoding_name : str, optional
+        Encoding strategy forwarded to ``PhotonicQCNN``.
+    num_photons : int, optional
+        Number of photons used by the Merlin photonic model.
+    num_modes : int, optional
+        Number of modes used by the Merlin photonic model.
+    num_features : int, optional
+        Number of input features expected by the selected encoding.
+    time : float, optional
+        Evolution time parameter used by time-based encodings.
+    computation_space : ml.ComputationSpace, optional
+        Merlin computation space used for simulation and measurement.
     run_dir : pathlib.Path, optional
-        Output directory for plots and JSON data.
+        Optional output directory for generated plots.
 
     Returns
     -------
-    tuple
-        Metrics for qiskit and merlin models.
+    tuple[list, list, list, list, list, list]
+        ``(qiskit_accuracies, qiskit_losses, qiskit_gen_error,``
+        ``merlin_accuracies, merlin_losses, merlin_gen_error)`` where each
+        entry stores per-sample-size metric histories.
     """
     qiskit_accuracies = []
     qiskit_losses = []
@@ -500,7 +522,6 @@ def reproduce_fig_7(
 
         qiskit_model = qiskit_QCNN()
         merlin_model = PhotonicQCNN(
-            dims=(32, 32),
             conv_circuit="MZI",
             dense_circuit="MZI",
             dense_added_modes=0,
@@ -508,6 +529,12 @@ def reproduce_fig_7(
             output_formatting="Lex_grouping",
             num_classes=2,
             measure_subset=None,
+            encoding_name=encoding_name,
+            num_photons=num_photons,
+            num_modes=num_modes,
+            num_features=num_features,
+            time=time,
+            computation_space=computation_space,
         )
 
         print("Qiskit model:")

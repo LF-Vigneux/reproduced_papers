@@ -1,9 +1,7 @@
 import sys
 from pathlib import Path
-import itertools
 import merlin as ml
 import torch.nn as nn
-import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -136,7 +134,6 @@ class PhotonicQCNN(nn.Module):
 
     def __init__(
         self,
-        dims,
         conv_circuit,
         dense_circuit,
         measure_subset,
