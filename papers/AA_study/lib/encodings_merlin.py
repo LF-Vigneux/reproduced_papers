@@ -15,7 +15,6 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from photonic_QCNN.lib.src.qcnn_paper import OneHotEncoder  # noqa: E402
 from papers.AA_study.utils.qlayers_utils import generate_fourrier_sub_matrix, MZI
 
 
@@ -149,6 +148,37 @@ def fourier_basis(features: list[float], num_qubits_per_feature: int):
     return main_circuit
 
 
+class OneHotEncoder(nn.Module):
+    """
+    One Hot Encoder
+
+    Converts an image `x` to density matrix in the One Hot Amplitude
+    basis. For a given d by d image, the density matrix will be of
+    size d^2 by d^2.
+    """
+
+    def __init__(self, image_size):
+        super().__init__()
+        self.output_size = image_size**2
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 3:
+            x = x.unsqueeze(1)
+
+        norm = torch.sqrt(torch.square(torch.abs(x)).sum(dim=(1, 2, 3)))
+        x = x / norm.view(-1, 1, 1, 1)
+
+        # Flatten each image and multiply by transpose to get density matrix
+        x_flat = x.reshape(x.shape[0], -1)
+        rho = x_flat.unsqueeze(2) @ x_flat.unsqueeze(1)
+        rho = rho.to(torch.complex64)
+
+        return rho
+
+    def __repr__(self):
+        return "OneHotEncoder()"
+
+
 class AngleEncoder(nn.Module):
     def __init__(
         self,
@@ -159,6 +189,7 @@ class AngleEncoder(nn.Module):
         super().__init__()
         self.num_features = num_features
         self.num_photons = num_photons
+        self.computation_space = computation_space
         circuit = ml.CircuitBuilder(n_modes=num_features)
         circuit.add_entangling_layer()
         circuit.add_angle_encoding()
@@ -170,6 +201,17 @@ class AngleEncoder(nn.Module):
             computation_space=computation_space,
         )
 
+        if self.computation_space is ml.ComputationSpace.UNBUNCHED:
+            self.output_size = math.comb(self.num_features, self.num_photons)
+        elif self.computation_space is ml.ComputationSpace.FOCK:
+            self.output_size = math.comb(
+                self.num_features + self.num_photons - 1, self.num_photons
+            )
+        elif self.computation_space is ml.ComputationSpace.DUAL_RAIL:
+            self.output_size = 2 ** (num_features / 2)
+        else:
+            raise ValueError("Wrong computation space")
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.dim() == 1:
             x = x.unsqueeze(0)
@@ -179,7 +221,7 @@ class AngleEncoder(nn.Module):
         amplitudes_output = self.qlayer(x)
 
         output_tensors = torch.empty(
-            (x.shape[0], amplitudes_output.shape[1], amplitudes_output.shape[1]),
+            (x.shape[0], self.output_size, self.output_size),
             dtype=complex,
         )
         for i, amplitude in enumerate(amplitudes_output):
@@ -195,8 +237,8 @@ class AmplitudeEncoder(nn.Module):
     def __init__(
         self,
         num_modes: int,
-        computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
         num_photons: int = 0,
+        computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
     ):
         super().__init__()
         self.num_modes = num_modes
@@ -265,6 +307,8 @@ class DenseAngleEncoder(nn.Module):
             input_parameters=[f"phi{i:0{width}d}" for i in range(num_features)],
         )
 
+        self.output_size = 2 ** int(np.ceil(num_features // 2))
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.dim() == 1:
             x = x.unsqueeze(0)
@@ -274,7 +318,7 @@ class DenseAngleEncoder(nn.Module):
         amplitudes_output = self.qlayer(x)
 
         output_tensors = torch.empty(
-            (x.shape[0], amplitudes_output.shape[1], amplitudes_output.shape[1]),
+            (x.shape[0], self.output_size, self.output_size),
             dtype=complex,
         )
         for i, amplitude in enumerate(amplitudes_output):
@@ -290,8 +334,8 @@ class DenseAmplitudeEncoder(nn.Module):
     def __init__(
         self,
         num_modes: int,
-        computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
         num_photons: int = 0,
+        computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
     ):
         super().__init__()
         self.num_modes = num_modes
@@ -447,6 +491,7 @@ def choose_encoding(
     num_photons: int | None = None,
     num_modes: int | None = None,
     num_features: int | None = None,
+    time: float = 0.01,
     computation_space=ml.ComputationSpace.UNBUNCHED,
 ) -> tuple[
     AngleEncoder
@@ -459,7 +504,45 @@ def choose_encoding(
     int,
 ]:
     if encoding_name == "OneHot":
-        return OneHotEncoder(), 0
+        return OneHotEncoder()
     elif encoding_name == "Angle":
-        return AngleEncoder(num_features=num_modes)
-    pass
+        return AngleEncoder(
+            num_features=num_features,
+            num_photons=num_photons,
+            computation_space=computation_space,
+        )
+    elif encoding_name == "DenseAngle":
+        return DenseAngleEncoder(
+            num_features=num_features,
+        )
+    elif encoding_name == "Amlitude":
+        return AmplitudeEncoder(
+            num_photons=num_photons,
+            num_modes=num_modes,
+            computation_space=computation_space,
+        )
+    elif encoding_name == "Amlitude":
+        return AmplitudeEncoder(
+            num_photons=num_photons,
+            num_modes=num_modes,
+            computation_space=computation_space,
+        )
+    elif encoding_name == "DenseAmlitude":
+        return DenseAmplitudeEncoder(
+            num_photons=num_photons,
+            num_modes=num_modes,
+            computation_space=computation_space,
+        )
+    elif encoding_name == "TimeEvolution":
+        return TimeEvolutionEncoder(
+            image_size=num_features,
+            num_photons=num_photons,
+            time=time,
+            computation_space=computation_space,
+        )
+    elif encoding_name == "Fourier":
+        return FourierEncoder(
+            num_features=num_features, n_photon_per_feature=num_photons
+        )
+    else:
+        raise ValueError("No encoding method associates with that name")

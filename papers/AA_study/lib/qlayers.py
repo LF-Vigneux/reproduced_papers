@@ -23,6 +23,7 @@ from papers.AA_study.utils.qlayers_utils import (  # noqa: E402
     generate_partial_fock_states,
     partial_measurement_output_size,
 )
+from papers.AA_study.lib.encodings_merlin import choose_encoding
 
 
 def angle_encoding_simple(
@@ -143,6 +144,12 @@ class PhotonicQCNN(nn.Module):
         output_proba_type,
         output_formatting,
         num_classes=2,
+        encoding_name: str = "OneHot",
+        num_photons: int = 0,
+        num_modes: int = 0,
+        num_features: int = 0,
+        time: float = 0.0,
+        computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
     ):
         super().__init__()
         self.num_modes_end = dims[0] + dense_added_modes
@@ -150,7 +157,16 @@ class PhotonicQCNN(nn.Module):
             measure_subset if measure_subset is not None else dims[0]
         )
 
-        self.one_hot_encoding = OneHotEncoder()
+        self.encoding = choose_encoding(
+            encoding_name=encoding_name,
+            num_photons=num_photons,
+            num_modes=num_modes,
+            num_features=num_features,
+            time=time,
+            computation_space=computation_space,
+        )
+        dims = self.encoding.output_size
+
         self.conv2d = QConv2d(dims, kernel_size=2, stride=2, circuit=conv_circuit)
         self.pooling = QPooling(dims, kernel_size=2)
         self.dense = QDense(
@@ -163,7 +179,7 @@ class PhotonicQCNN(nn.Module):
         )
 
         self.qcnn = nn.Sequential(
-            self.one_hot_encoding, self.conv2d, self.pooling, self.dense, self.measure
+            self.encoding, self.conv2d, self.pooling, self.dense, self.measure
         )
 
         # Output dimension of the QCNN
