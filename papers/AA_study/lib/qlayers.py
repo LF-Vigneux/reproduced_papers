@@ -29,6 +29,9 @@ def angle_encoding_simple(
     num_layers: int = 3,
     measurement_strategy: ml.MeasurementStrategy = ml.MeasurementStrategy.PROBABILITIES,
     num_classes: int = 2,
+    __num_modes: int | None = None,
+    __num_photons: int | None = None,
+    __reuploading: bool = False,
 ) -> ml.QuantumLayer:
     """
     Build a simple angle-encoding photonic quantum layer.
@@ -44,33 +47,67 @@ def angle_encoding_simple(
     num_classes : int, optional
         Number of output classes after lexicographic grouping.
 
+    if __reuploading=True, define __num_modes, __num_photons
+
     Returns
     -------
     torch.nn.Sequential
         Quantum layer followed by lexicographic grouping.
     """
-    input_state = [0] * num_features
-    for i in range(num_features // 2):
-        input_state[(i * 2) + 1] = 1
-    circuit = ml.CircuitBuilder(n_modes=num_features)
-    if num_features == 1:
-        circuit.add_rotations(trainable=True)
-    else:
-        circuit.add_entangling_layer()
-    circuit.add_angle_encoding()
-    for _ in range(num_layers):
+    if __num_modes is None:
+        input_state = [0] * num_features
+        for i in range(num_features // 2):
+            input_state[(i * 2) + 1] = 1
+        circuit = ml.CircuitBuilder(n_modes=num_features)
         if num_features == 1:
             circuit.add_rotations(trainable=True)
         else:
             circuit.add_entangling_layer()
-    qlayer = ml.QuantumLayer(
-        input_size=num_features,  # Follow the convention?
-        builder=circuit,
-        input_state=input_state,
-        n_photons=num_features // 2,
-        measurement_strategy=measurement_strategy,
-    )
-    return nn.Sequential(qlayer, ml.LexGrouping(qlayer.output_size, num_classes))
+        circuit.add_angle_encoding()
+        for _ in range(num_layers):
+            if num_features == 1:
+                circuit.add_rotations(trainable=True)
+            else:
+                circuit.add_entangling_layer()
+        qlayer = ml.QuantumLayer(
+            input_size=num_features,  # Follow the convention?
+            builder=circuit,
+            input_state=input_state,
+            n_photons=num_features // 2,
+            measurement_strategy=measurement_strategy,
+        )
+        return nn.Sequential(qlayer, ml.LexGrouping(qlayer.output_size, num_classes))
+    else:
+        input_state = [0] * __num_modes
+        for i in range(__num_photons):
+            input_state[(i * 2) + 1] = 1
+        circuit = ml.CircuitBuilder(n_modes=__num_modes)
+        if __num_modes == 1:
+            circuit.add_rotations(trainable=True)
+        else:
+            circuit.add_entangling_layer()
+        circuit.add_angle_encoding(modes=[i for i in range(num_features)])
+        for _ in range(num_layers):
+            if __reuploading:
+                if __num_modes == 1:
+                    circuit.add_rotations(trainable=True)
+                    circuit.add_angle_encoding(modes=[i for i in range(num_features)])
+                else:
+                    circuit.add_entangling_layer()
+                    circuit.add_angle_encoding(modes=[i for i in range(num_features)])
+            else:
+                if __num_modes == 1:
+                    circuit.add_rotations(trainable=True)
+                else:
+                    circuit.add_entangling_layer()
+        qlayer = ml.QuantumLayer(
+            input_size=num_features,  # Follow the convention?
+            builder=circuit,
+            input_state=input_state,
+            n_photons=__num_photons,
+            measurement_strategy=measurement_strategy,
+        )
+        return nn.Sequential(qlayer, ml.LexGrouping(qlayer.output_size, num_classes))
 
 
 def amplitude_encoding_simple(

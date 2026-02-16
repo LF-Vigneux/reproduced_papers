@@ -281,7 +281,9 @@ def reproduce_fig_4(
         for i in range(3):
             qiskit_model = single_qubit_model(num_layers=L)
             amplitude_model = amplitude_encoding_simple(num_features=2, num_layers=L)
-            angle_model = angle_encoding_simple(num_features=2, num_layers=L)
+            angle_model = angle_encoding_simple(
+                num_features=2, num_layers=L, __num_modes=3, __num_photons=1
+            )
 
             print("Qiskit model:")
             _, accuracies, losses = basic_model_training(
