@@ -1,7 +1,9 @@
 import sys
+import numpy as np
 from pathlib import Path
 import merlin as ml
 import torch.nn as nn
+import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -22,6 +24,31 @@ from papers.AA_study.utils.qlayers_utils import (  # noqa: E402
     partial_measurement_output_size,
 )
 from papers.AA_study.lib.encodings_merlin import choose_encoding
+
+
+class ReuploadingModule(nn.Module):
+    def __init__(self, model: nn.Module, num_layers: int, output_size: int):
+        super().__init__()
+        self.model = model
+        self.num_layers = num_layers
+        self.output_size = output_size
+
+    def forward(self, x: torch.Tensor):
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+        if x.dim() > 2:
+            x = x.reshape(x.shape[0], np.prod(x.shape[1:]))
+
+        output_tensors = torch.empty(
+            (x.shape[0], self.output_size, self.output_size),
+            dtype=complex,
+        )
+
+        for i, tensor in enumerate(x):
+            tensor_repeated = tensor.repeat(self.num_layers + 1)
+            output_tensors[i] = self.model(tensor_repeated)
+
+        return output_tensors
 
 
 def angle_encoding_simple(
@@ -100,14 +127,31 @@ def angle_encoding_simple(
                     circuit.add_rotations(trainable=True)
                 else:
                     circuit.add_entangling_layer()
-        qlayer = ml.QuantumLayer(
-            input_size=num_features,  # Follow the convention?
-            builder=circuit,
-            input_state=input_state,
-            n_photons=__num_photons,
-            measurement_strategy=measurement_strategy,
-        )
-        return nn.Sequential(qlayer, ml.LexGrouping(qlayer.output_size, num_classes))
+
+        if __reuploading:
+            qlayer = ml.QuantumLayer(
+                input_size=num_features * (num_layers + 1),  # Follow the convention?
+                builder=circuit,
+                input_state=input_state,
+                n_photons=__num_photons,
+                measurement_strategy=measurement_strategy,
+            )
+            return ReuploadingModule(
+                nn.Sequential(qlayer, ml.LexGrouping(qlayer.output_size, num_classes)),
+                num_layers,
+                num_classes,
+            )
+        else:
+            qlayer = ml.QuantumLayer(
+                input_size=num_features,  # Follow the convention?
+                builder=circuit,
+                input_state=input_state,
+                n_photons=__num_photons,
+                measurement_strategy=measurement_strategy,
+            )
+            return nn.Sequential(
+                qlayer, ml.LexGrouping(qlayer.output_size, num_classes)
+            )
 
 
 def amplitude_encoding_simple(

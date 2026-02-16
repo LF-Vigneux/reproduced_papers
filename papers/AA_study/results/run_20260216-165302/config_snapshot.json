@@ -1,0 +1,18 @@
+{
+  "seed": 1337,
+  "dtype": null,
+  "device": "cpu",
+  "logging": {
+    "level": "info"
+  },
+  "data_root": "/Users/lfvigneux/Documents/GitHub/reproduced_papers/data",
+  "description": "Run the FIG4 experiment",
+  "outdir": "results",
+  "exp_to_run": "FIG4",
+  "batch_size": 50,
+  "num_epochs": 1000,
+  "classical_epochs": 20,
+  "lr": 0.01,
+  "dont_generate_graph": "False",
+  "num_samples_per_class": 2000
+}
