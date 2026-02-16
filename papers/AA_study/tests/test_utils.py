@@ -12,6 +12,7 @@ import torch  # noqa: E402
 from papers.AA_study.utils.datasets import generate_fig_2_dataset  # noqa: E402
 from papers.AA_study.utils.qlayers_utils import (
     generate_fourrier_sub_matrix,
+    generate_fourrier_sub_matrix_v2,
 )  # noqa: E402
 from papers.AA_study.utils.utils import (  # noqa: E402
     find_mode_photon_config,
@@ -64,29 +65,29 @@ def test_generate_fourrier_sub_matrix():
         matrix_one_photon = (1 / (2 ** (0.5))) * np.array(
             [
                 [1, 1],
-                [np.exp(1.0j * 2 * np.pi * x), (-1) * np.exp(1.0j * 2 * np.pi * x)],
+                [np.exp(1.0j * np.pi * x), (-1) * np.exp(1.0j * np.pi * x)],
             ]
         )
         matrix_two_photon = (1 / 2) * np.array(
             [
                 [1, 1, 1, 1],
                 [
+                    np.exp(0.5j * np.pi * x),
+                    (-1) * np.exp(0.5j * np.pi * x),
+                    np.exp(0.5j * np.pi * x),
+                    (-1) * np.exp(0.5j * np.pi * x),
+                ],
+                [
+                    np.exp(1.0j * np.pi * x),
                     np.exp(1.0j * np.pi * x),
                     (-1) * np.exp(1.0j * np.pi * x),
-                    np.exp(1.0j * np.pi * x),
                     (-1) * np.exp(1.0j * np.pi * x),
                 ],
                 [
-                    np.exp(1.0j * 2 * np.pi * x),
-                    np.exp(1.0j * 2 * np.pi * x),
-                    (-1) * np.exp(1.0j * 2 * np.pi * x),
-                    (-1) * np.exp(1.0j * 2 * np.pi * x),
-                ],
-                [
-                    np.exp(1.0j * 3 * np.pi * x),
-                    (-1) * np.exp(1.0j * 3 * np.pi * x),
-                    (-1) * np.exp(1.0j * 3 * np.pi * x),
-                    np.exp(1.0j * 3 * np.pi * x),
+                    np.exp(1.5j * np.pi * x),
+                    (-1) * np.exp(1.5j * np.pi * x),
+                    (-1) * np.exp(1.5j * np.pi * x),
+                    np.exp(1.5j * np.pi * x),
                 ],
             ]
         )
@@ -94,74 +95,74 @@ def test_generate_fourrier_sub_matrix():
             [
                 [1, 1, 1, 1, 1, 1, 1, 1],
                 [
+                    np.exp(0.25j * np.pi * x),
+                    (-1) * np.exp(0.25j * np.pi * x),
+                    np.exp(0.25j * np.pi * x),
+                    (-1) * np.exp(0.25j * np.pi * x),
+                    np.exp(0.25j * np.pi * x),
+                    (-1) * np.exp(0.25j * np.pi * x),
+                    np.exp(0.25j * np.pi * x),
+                    (-1) * np.exp(0.25j * np.pi * x),
+                ],
+                [
+                    np.exp(0.5j * np.pi * x),
                     np.exp(0.5j * np.pi * x),
                     (-1) * np.exp(0.5j * np.pi * x),
-                    np.exp(0.5j * np.pi * x),
                     (-1) * np.exp(0.5j * np.pi * x),
                     np.exp(0.5j * np.pi * x),
-                    (-1) * np.exp(0.5j * np.pi * x),
                     np.exp(0.5j * np.pi * x),
                     (-1) * np.exp(0.5j * np.pi * x),
+                    (-1) * np.exp(0.5j * np.pi * x),
+                ],
+                [
+                    np.exp(0.75j * np.pi * x),
+                    (-1) * np.exp(0.75j * np.pi * x),
+                    (-1) * np.exp(0.75j * np.pi * x),
+                    np.exp(0.75j * np.pi * x),
+                    np.exp(0.75j * np.pi * x),
+                    (-1) * np.exp(0.75j * np.pi * x),
+                    (-1) * np.exp(0.75j * np.pi * x),
+                    np.exp(0.75j * np.pi * x),
                 ],
                 [
                     np.exp(1.0j * np.pi * x),
                     np.exp(1.0j * np.pi * x),
-                    (-1) * np.exp(1.0j * np.pi * x),
-                    (-1) * np.exp(1.0j * np.pi * x),
                     np.exp(1.0j * np.pi * x),
                     np.exp(1.0j * np.pi * x),
                     (-1) * np.exp(1.0j * np.pi * x),
                     (-1) * np.exp(1.0j * np.pi * x),
+                    (-1) * np.exp(1.0j * np.pi * x),
+                    (-1) * np.exp(1.0j * np.pi * x),
+                ],
+                [
+                    np.exp(1.25j * np.pi * x),
+                    (-1) * np.exp(1.25j * np.pi * x),
+                    np.exp(1.25j * np.pi * x),
+                    (-1) * np.exp(1.25j * np.pi * x),
+                    (-1) * np.exp(1.25j * np.pi * x),
+                    np.exp(1.25j * np.pi * x),
+                    (-1) * np.exp(1.25j * np.pi * x),
+                    np.exp(1.25j * np.pi * x),
                 ],
                 [
                     np.exp(1.5j * np.pi * x),
+                    np.exp(1.5j * np.pi * x),
+                    (-1) * np.exp(1.5j * np.pi * x),
+                    (-1) * np.exp(1.5j * np.pi * x),
                     (-1) * np.exp(1.5j * np.pi * x),
                     (-1) * np.exp(1.5j * np.pi * x),
                     np.exp(1.5j * np.pi * x),
                     np.exp(1.5j * np.pi * x),
-                    (-1) * np.exp(1.5j * np.pi * x),
-                    (-1) * np.exp(1.5j * np.pi * x),
-                    np.exp(1.5j * np.pi * x),
                 ],
                 [
-                    np.exp(2.0j * np.pi * x),
-                    np.exp(2.0j * np.pi * x),
-                    np.exp(2.0j * np.pi * x),
-                    np.exp(2.0j * np.pi * x),
-                    (-1) * np.exp(2.0j * np.pi * x),
-                    (-1) * np.exp(2.0j * np.pi * x),
-                    (-1) * np.exp(2.0j * np.pi * x),
-                    (-1) * np.exp(2.0j * np.pi * x),
-                ],
-                [
-                    np.exp(2.5j * np.pi * x),
-                    (-1) * np.exp(2.5j * np.pi * x),
-                    np.exp(2.5j * np.pi * x),
-                    (-1) * np.exp(2.5j * np.pi * x),
-                    (-1) * np.exp(2.5j * np.pi * x),
-                    np.exp(2.5j * np.pi * x),
-                    (-1) * np.exp(2.5j * np.pi * x),
-                    np.exp(2.5j * np.pi * x),
-                ],
-                [
-                    np.exp(3.0j * np.pi * x),
-                    np.exp(3.0j * np.pi * x),
-                    (-1) * np.exp(3.0j * np.pi * x),
-                    (-1) * np.exp(3.0j * np.pi * x),
-                    (-1) * np.exp(3.0j * np.pi * x),
-                    (-1) * np.exp(3.0j * np.pi * x),
-                    np.exp(3.0j * np.pi * x),
-                    np.exp(3.0j * np.pi * x),
-                ],
-                [
-                    np.exp(3.5j * np.pi * x),
-                    (-1) * np.exp(3.5j * np.pi * x),
-                    (-1) * np.exp(3.5j * np.pi * x),
-                    np.exp(3.5j * np.pi * x),
-                    (-1) * np.exp(3.5j * np.pi * x),
-                    np.exp(3.5j * np.pi * x),
-                    np.exp(3.5j * np.pi * x),
-                    (-1) * np.exp(3.5j * np.pi * x),
+                    np.exp(1.75j * np.pi * x),
+                    (-1) * np.exp(1.75j * np.pi * x),
+                    (-1) * np.exp(1.75j * np.pi * x),
+                    np.exp(1.75j * np.pi * x),
+                    (-1) * np.exp(1.75j * np.pi * x),
+                    np.exp(1.75j * np.pi * x),
+                    np.exp(1.75j * np.pi * x),
+                    (-1) * np.exp(1.75j * np.pi * x),
                 ],
             ]
         )
@@ -174,3 +175,18 @@ def test_generate_fourrier_sub_matrix():
         assert np.allclose(
             matrix_three_photon, generate_fourrier_sub_matrix(x, num_photons=3)
         )
+
+
+def test_generate_fourrier_sub_matrix_v2():
+    for x in [0.37, 1.2, 3]:
+        for i in range(5):
+            matrix_one_photon = (1 / (2 ** (0.5))) * np.array(
+                [
+                    [1, 1],
+                    [
+                        np.exp(2.0j * np.pi * x / (2 ** (i + 1))),
+                        (-1) * np.exp(2.0j * np.pi * x / (2 ** (i + 1))),
+                    ],
+                ]
+            )
+            assert np.allclose(matrix_one_photon, generate_fourrier_sub_matrix_v2(x, i))

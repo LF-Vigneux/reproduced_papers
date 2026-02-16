@@ -11,14 +11,14 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from papers.AA_study.utils.qlayers_utils import generate_fourrier_sub_matrix
+from papers.AA_study.utils.qlayers_utils import generate_fourrier_sub_matrix_v2
 
 from papers.AA_study.lib.encodings_merlin import (  # noqa: E402
     dense_angle_encoding_circuit,
     dense_encoding_of_features,
     unitary_evolution,
     amplitude_encoding,
-    fourier_basis,
+    fourier_basis_v2,
     AngleEncoder,
     AmplitudeEncoder,
     DenseAngleEncoder,
@@ -102,15 +102,23 @@ def test_unitary_evolution():
 
 
 # TODO: Change once I can really understand the qubit--> mode maping
-"""
-def test_fourier_basis():
+def test_fourier_basis_v2():
     features = [0.3, 0.67]
-    target = np.kron(
-        generate_fourrier_sub_matrix(feature=features[0], num_photons=2),
-        generate_fourrier_sub_matrix(feature=features[1], num_photons=2),
+    target = np.zeros((8, 8), dtype=np.complex64)
+    target[0:2, 0:2] = generate_fourrier_sub_matrix_v2(
+        feature=features[0], photon_index=0
+    )
+    target[2:4, 2:4] = generate_fourrier_sub_matrix_v2(
+        feature=features[0], photon_index=1
+    )
+    target[4:6, 4:6] = generate_fourrier_sub_matrix_v2(
+        feature=features[1], photon_index=0
+    )
+    target[6:, 6:] = generate_fourrier_sub_matrix_v2(
+        feature=features[1], photon_index=1
     )
 
-    output_circuit = fourier_basis(features=features, num_qubits_per_feature=2)
+    output_circuit = fourier_basis_v2(features=features, num_qubits_per_feature=2)
     computed = np.array(output_circuit.compute_unitary())
 
     # Fix global phase so (0, 0) entry is real and positive.
@@ -120,7 +128,6 @@ def test_fourier_basis():
     computed = computed * computed_phase
 
     assert np.allclose(target, computed, rtol=0.01)
-"""
 
 
 def test_AngleEncoder():
@@ -244,7 +251,14 @@ def test_TimeEvolutionEncoder():
 
 
 # TODO: Change once I can really understand the qubit--> mode maping
-"""
 def test_FourierEncoder():
-    pass
-"""
+    encoder = FourierEncoder(num_features=3, n_photon_per_feature=3)
+
+    features = torch.rand((10, 3))
+
+    output_state = encoder(features)
+
+    assert output_state.shape == (10, 2**9, 2**9)
+    assert output_state.dtype == torch.complex128
+    for i in output_state:
+        assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)

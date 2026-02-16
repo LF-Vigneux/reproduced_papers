@@ -98,7 +98,7 @@ def partial_measurement_output_size(subset: int, n: int, total_modes: int) -> in
 
 def generate_fourrier_sub_matrix(feature: float, num_photons: int) -> NDArray:
     """
-    The / in exp is just j insted of n-j to take for account the end swap
+    The / in exp is just j+1 insted of n-j to take for account the end swap
     """
 
     def _generate_fourrier_sub_matrix(
@@ -112,8 +112,8 @@ def generate_fourrier_sub_matrix(feature: float, num_photons: int) -> NDArray:
                 [
                     [1, 1],
                     [
-                        np.exp(1.0j * 2 * np.pi * feature),
-                        (-1) * np.exp(1.0j * 2 * np.pi * feature),
+                        np.exp(1.0j * np.pi * feature),
+                        (-1) * np.exp(1.0j * np.pi * feature),
                     ],
                 ]
             )
@@ -123,8 +123,11 @@ def generate_fourrier_sub_matrix(feature: float, num_photons: int) -> NDArray:
             [
                 [1, 1],
                 [
-                    np.exp(1.0j * 2 * np.pi * feature / (2**num_photons_done)),
-                    (-1) * np.exp(1.0j * 2 * np.pi * feature / (2**num_photons_done)),
+                    np.exp(1.0j * 2 * np.pi * feature / (2 ** (num_photons_done + 1))),
+                    (-1)
+                    * np.exp(
+                        1.0j * 2 * np.pi * feature / (2 ** (num_photons_done + 1))
+                    ),
                 ],
             ]
         )
@@ -134,3 +137,15 @@ def generate_fourrier_sub_matrix(feature: float, num_photons: int) -> NDArray:
         )
 
     return (1 / (2 ** (num_photons / 2))) * _generate_fourrier_sub_matrix()
+
+
+def generate_fourrier_sub_matrix_v2(feature: float, photon_index: int) -> NDArray:
+    return (1 / np.sqrt(2)) * np.array(
+        [
+            [1, 1],
+            [
+                np.exp(1.0j * 2 * np.pi * feature / (2 ** (photon_index + 1))),
+                (-1) * np.exp(1.0j * 2 * np.pi * feature / (2 ** (photon_index + 1))),
+            ],
+        ]
+    )
