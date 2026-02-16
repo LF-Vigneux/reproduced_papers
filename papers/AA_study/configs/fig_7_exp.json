@@ -12,5 +12,6 @@
     "num_features":10,
     "time":0.1,
     "computation_space":"UNBUNCHED",
+    "shuffle_amplitude":"False",
     "sample_size_per_class_to_test":[1,10,100,1000]
 }
