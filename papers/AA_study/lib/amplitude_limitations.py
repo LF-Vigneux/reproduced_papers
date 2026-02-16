@@ -459,6 +459,7 @@ def reproduce_fig_7(
     num_features: int = 0,
     time: float = 0.0,
     computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
+    shuffle_amplitude: bool = False,
     run_dir: Path = None,
 ):
     """
@@ -490,6 +491,8 @@ def reproduce_fig_7(
         Evolution time parameter used by time-based encodings.
     computation_space : ml.ComputationSpace, optional
         Merlin computation space used for simulation and measurement.
+    shuffle_amplitude: bool, optional,
+        Flag to enable the random assignation of amplitudes to modes in MerLin's amplitude encodings.
     run_dir : pathlib.Path, optional
         Optional output directory for generated plots.
 
@@ -535,6 +538,7 @@ def reproduce_fig_7(
             num_features=num_features,
             time=time,
             computation_space=computation_space,
+            shuffle_amplitude=shuffle_amplitude,
         )
 
         print("Qiskit model:")

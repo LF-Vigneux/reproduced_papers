@@ -3,6 +3,7 @@ import warnings
 from math import comb
 
 import numpy as np
+import merlin as ml
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -329,6 +330,15 @@ def str_to_bool(s: str) -> bool:
     return False
 
 
+def str_to_computation_space(s: str) -> bool:
+    if s == "UNBUNCHED":
+        return ml.ComputationSpace.UNBUNCHED
+    if s == "FOCK":
+        return ml.ComputationSpace.FOCK
+    if s == "DUAL_RAIL":
+        return ml.ComputationSpace.DUAL_RAIL
+
+
 def parse_args():
     """
     Parse command-line arguments for the experiment runner.
@@ -402,6 +412,48 @@ def parse_args():
         "--encoding_name",
         type=str,
         default="OneHot",
-        help="Encoding strategy for the MerLin QCNN (default: `OneHot`)",
+        help="Encoding strategy for the MerLin QCNN. Choose between `OneHot`, `Angle`, `DenseAngle`, `Amplitude`, `DenseAmplitude`, `TimeEvolution`, `Fourier` (default: `OneHot`)",
+    )
+    parser.add_argument(
+        "--num_photons",
+        type=int,
+        default=None,
+        help="The number of photons to inject in the circuit (if the control is available). For the Fourier basis, it also defines the number of photons (half of the modes) used for the Fourier representation of one feature (default: None)",
+    )
+    parser.add_argument(
+        "--num_photons",
+        type=int,
+        default=None,
+        help="The number of photons to inject in the circuit (if the control is available). For the Fourier basis, it also defines the number of photons (half of the modes) used for the Fourier representation of one feature (default: None)",
+    )
+    parser.add_argument(
+        "--num_modes",
+        type=int,
+        default=None,
+        help="The number of modes to use in the circuit (if the control is available). Can only be used in `Amplitude` and `DenseAmplitude` encodings (default: None)",
+    )
+    parser.add_argument(
+        "--num_features",
+        type=int,
+        default=None,
+        help="The number of features to be encoded (if it is an image in the `TimeEvolution` encoder, it is the dimension of one size of the image). Only `OneHot`, `Amplitude` and `DenseAmplitude` encodings do not use this parameter (default: None)",
+    )
+    parser.add_argument(
+        "--time",
+        type=float,
+        default=0.01,
+        help="The evolution time used in the `TimeEvolution` encoder (default: 0.01)",
+    )
+    parser.add_argument(
+        "--computation_space",
+        type=str,
+        default="UNBUNCHED",
+        help="If controllable, the computation space to use in the encoder. Available in the `Angle`, `Amplitude`, `DenseAmplitude` and `TimeEvolution` encoders. Choose between 'UNBUNCHED', 'FOCK' and 'DUAL_RAIL' (default: ComputationSpace.UNBUNCHED)",
+    )
+    parser.add_argument(
+        "--shuffle_amplitude",
+        type=bool,
+        default=False,
+        help="Enable the shuffling of the amplitude assignation to modes in MerLin's amplitude encoders (default: False)",
     )
     return parser.parse_args()

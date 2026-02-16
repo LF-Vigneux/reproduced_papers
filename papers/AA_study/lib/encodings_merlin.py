@@ -49,6 +49,7 @@ def amplitude_encoding(
     num_modes: int,
     num_photons: int = 0,
     computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
+    indexes_perm: list[int] | None = None,
 ) -> pcvl.Circuit:
     if computation_space == ml.ComputationSpace.UNBUNCHED:
         state = np.zeros(math.comb(num_modes, num_photons), dtype=complex)
@@ -60,10 +61,10 @@ def amplitude_encoding(
         state = np.zeros(2**num_modes, dtype=complex)
     else:
         raise ValueError("Invalid computation space")
-
-    for state_index, feature_index in enumerate(range(len(features))):
-        state[state_index] = features[feature_index]
+    state[: len(features)] = features
     state /= np.linalg.norm(state)
+    if indexes_perm is not None:
+        state = state[indexes_perm]
     return state
 
 
@@ -72,6 +73,7 @@ def dense_encoding_of_features(
     num_modes: int,
     num_photons: int = 0,
     computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
+    indexes_perm: list[int] | None = None,
 ) -> pcvl.Circuit:
     if computation_space == ml.ComputationSpace.UNBUNCHED:
         state = np.zeros(math.comb(num_modes, num_photons), dtype=complex)
@@ -84,13 +86,16 @@ def dense_encoding_of_features(
     else:
         raise ValueError("Invalid computation space")
 
-    for state_index, feature_index in enumerate(range(0, len(features), 2)):
-        if feature_index == len(features) - 1:
-            state[state_index] = features[feature_index]
-        else:
-            state[state_index] = (
-                features[feature_index] + 1.0j * features[feature_index + 1]
-            )
+    feature_shuffler = np.zeros(len(state) * 2)
+    feature_shuffler[: len(features)] = features
+
+    if indexes_perm is not None:
+        feature_shuffler = feature_shuffler[indexes_perm]
+
+    for state_index, feature_index in enumerate(range(0, len(feature_shuffler), 2)):
+        state[state_index] = (
+            feature_shuffler[feature_index] + 1.0j * feature_shuffler[feature_index + 1]
+        )
     state /= np.linalg.norm(state)
     return state
 
@@ -239,11 +244,13 @@ class AmplitudeEncoder(nn.Module):
         num_modes: int,
         num_photons: int = 0,
         computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
+        shuffle_amplitude: bool = False,
     ):
         super().__init__()
         self.num_modes = num_modes
         self.num_photons = num_photons
         self.computation_space = computation_space
+        self.shuffle_amplitude = shuffle_amplitude
 
         if self.computation_space is ml.ComputationSpace.UNBUNCHED:
             self.output_size = math.comb(self.num_modes, self.num_photons)
@@ -255,6 +262,12 @@ class AmplitudeEncoder(nn.Module):
             self.output_size = 2 ** (num_modes / 2)
         else:
             raise ValueError("Wrong computation space")
+
+        if self.shuffle_amplitude:
+            self.indexes_perm = np.arange(self.output_size)
+            np.random.shuffle(self.indexes_perm)
+        else:
+            self.indexes_perm = None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.dim() == 1:
@@ -274,6 +287,7 @@ class AmplitudeEncoder(nn.Module):
                     self.num_modes,
                     computation_space=self.computation_space,
                     num_photons=self.num_photons,
+                    indexes_perm=self.indexes_perm,
                 )
             )
             output_tensors[i, :, :] = torch.outer(state, state.conj())
@@ -492,7 +506,8 @@ def choose_encoding(
     num_modes: int | None = None,
     num_features: int | None = None,
     time: float = 0.01,
-    computation_space=ml.ComputationSpace.UNBUNCHED,
+    computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
+    shuffle_amplitude: bool = False,
 ) -> tuple[
     AngleEncoder
     | DenseAngleEncoder
@@ -515,23 +530,19 @@ def choose_encoding(
         return DenseAngleEncoder(
             num_features=num_features,
         )
-    elif encoding_name == "Amlitude":
+    elif encoding_name == "Amplitude":
         return AmplitudeEncoder(
             num_photons=num_photons,
             num_modes=num_modes,
             computation_space=computation_space,
+            shuffle_amplitude=shuffle_amplitude,
         )
-    elif encoding_name == "Amlitude":
-        return AmplitudeEncoder(
-            num_photons=num_photons,
-            num_modes=num_modes,
-            computation_space=computation_space,
-        )
-    elif encoding_name == "DenseAmlitude":
+    elif encoding_name == "DenseAmplitude":
         return DenseAmplitudeEncoder(
             num_photons=num_photons,
             num_modes=num_modes,
             computation_space=computation_space,
+            shuffle_amplitude=shuffle_amplitude,
         )
     elif encoding_name == "TimeEvolution":
         return TimeEvolutionEncoder(

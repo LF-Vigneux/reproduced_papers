@@ -147,6 +147,7 @@ class PhotonicQCNN(nn.Module):
         num_features: int = 0,
         time: float = 0.0,
         computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
+        shuffle_amplitude: bool = False,
     ):
         super().__init__()
         self.num_modes_end = dims[0] + dense_added_modes
@@ -161,6 +162,7 @@ class PhotonicQCNN(nn.Module):
             num_features=num_features,
             time=time,
             computation_space=computation_space,
+            shuffle_amplitude=shuffle_amplitude,
         )
         dims = self.encoding.output_size
 

@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import merlin as ml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -19,6 +20,7 @@ from papers.AA_study.utils.utils import (  # noqa: E402
     parse_args,
     parse_sample_size_per_class_to_test,
     str_to_bool,
+    str_to_computation_space,
 )
 
 
@@ -39,7 +41,10 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
     """
     exp_to_run = cfg.get("exp_to_run", "DEFAULT")
     generate_graph = not str_to_bool(cfg.get("dont_generate_graph", False))
-
+    comp_space = str_to_computation_space(
+        cfg.get("computation_space", ml.ComputationSpace.UNBUNCHED)
+    )
+    shuffle_amplitude = str_to_bool(cfg.get("shuffle_amplitude", False))
     sample_size_per_class_to_test = parse_sample_size_per_class_to_test(
         cfg.get("bond_dimensions_to_test")
     )
@@ -101,6 +106,13 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
             batch_size=cfg.get("batch_size", 50),
             num_epochs=cfg.get("num_epochs", 20),
             lr=cfg.get("lr", 0.01),
+            encoding_name=cfg.get("encoding_name", "OneHot"),
+            num_photons=cfg.get("num_photons", None),
+            num_modes=cfg.get("num_modes", None),
+            num_features=cfg.get("num_features", None),
+            time=cfg.get("time", 0.01),
+            computation_space=comp_space,
+            shuffle_amplitude=shuffle_amplitude,
             run_dir=run_dir,
         )
 
@@ -117,6 +129,8 @@ def main():
     None
     """
     args = parse_args()
+
+    comp_space = str_to_computation_space(args.computation_space)
 
     if args.exp_to_run == "DEFAULT":
         print("Running the DEFAULT experiment")
@@ -158,6 +172,13 @@ def main():
             batch_size=args.batch_size,
             num_epochs=args.num_epochs,
             lr=args.lr,
+            encoding_name=args.encoding_name,
+            num_photons=args.num_photons,
+            num_modes=args.num_modes,
+            num_features=args.num_features,
+            time=args.time,
+            computation_space=comp_space,
+            shuffle_amplitude=args.shuffle_amplitude,
         )
     else:
         raise NameError("No experiment with that name")

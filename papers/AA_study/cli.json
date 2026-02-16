@@ -43,19 +43,68 @@
       "default": null,
       "apply": {"kind": "config_path", "path": "lr"}
     },
-      {
+    {
       "flags": ["--num_samples_per_class"],
       "help": "The number of samples to create per class from the synthetic datasets of the paper (default: 2000)",
       "type": "int",
       "default": null,
       "apply": {"kind": "config_path", "path": "lr"}
     },
-      {
+    {
       "flags": ["--sample_size_per_class_to_test"],
       "help":"The number of samples to get from the dataset for each run analyzed (default: [1,10,100,1000])",
       "type": "str",
       "default": null,
       "apply": {"kind": "config_path", "path": "sample_size_per_class_to_test"}
+    },  
+      {
+      "flags": ["--encoding_name"],
+      "help":"Encoding strategy for the MerLin QCNN. Choose between `OneHot`, `Angle`, `DenseAngle`, `Amplitude`, `DenseAmplitude`, `TimeEvolution`, `Fourier` (default: `OneHot`)",
+      "type": "str",
+      "default": null,
+      "apply": {"kind": "config_path", "path": "encoding_name"}
+    },  
+    {
+      "flags": ["--num_photons"],
+      "help": "The number of photons to inject in the circuit (if the control is available). For the Fourier basis, it also defines the number of photons (half of the modes) used for the Fourier representation of one feature (default: None)",
+      "type": "int",
+      "default": null,
+      "apply": {"kind": "config_path", "path": "num_photons"}
+    },
+    {
+      "flags": ["--num_modes"],
+      "help": "The number of modes to use in the circuit (if the control is available). Can only be used in `Amplitude` and `DenseAmplitude` encodings (default: None)",
+      "type": "int",
+      "default": null,
+      "apply": {"kind": "config_path", "path": "num_modes"}
+    },
+    {
+      "flags": ["--num_features"],
+      "help": "The number of features to be encoded (if it is an image in the `TimeEvolution` encoder, it is the dimension of one size of the image). Only `OneHot`, `Amplitude` and `DenseAmplitude` encodings do not use this parameter (default: None)",
+      "type": "int",
+      "default": null,
+      "apply": {"kind": "config_path", "path": "num_features"}
+    },
+    {
+      "flags": ["--time"],
+      "help": "The evolution time used in the `TimeEvolution` encoder (default: 0.01)",
+      "type": "float",
+      "default": null,
+      "apply": {"kind": "config_path", "path": "time"}
+    },
+    {
+      "flags": ["--computation_space"],
+      "help": "If controllable, the computation space to use in the encoder. Available in the `Angle`, `Amplitude`, `DenseAmplitude` and `TimeEvolution` encoders. Choose between 'UNBUNCHED', 'FOCK' and 'DUAL_RAIL' (default: ComputationSpace.UNBUNCHED)",
+      "type": "str",
+      "default": null,
+      "apply": {"kind": "config_path", "path": "computation_space"}
+    },
+    {
+      "flags": ["--shuffle_amplitude"],
+      "help": "Enable the shuffling of the amplitude assignation to modes in MerLin's amplitude encoders",
+      "type": "bool",
+      "default": null,
+      "apply": {"kind": "config_path", "path": "shuffle_amplitude"}
     },  
     {
       "flags": ["--dont_generate_graph"],
