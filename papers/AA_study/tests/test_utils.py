@@ -13,6 +13,7 @@ from papers.AA_study.utils.datasets import generate_fig_2_dataset  # noqa: E402
 from papers.AA_study.utils.qlayers_utils import (
     generate_fourrier_sub_matrix,
     generate_fourrier_sub_matrix_v2,
+    find_upper_even_square,
 )  # noqa: E402
 from papers.AA_study.utils.utils import (  # noqa: E402
     find_mode_photon_config,
@@ -190,3 +191,9 @@ def test_generate_fourrier_sub_matrix_v2():
                 ]
             )
             assert np.allclose(matrix_one_photon, generate_fourrier_sub_matrix_v2(x, i))
+
+
+def test_find_upper_even_square():
+    assert find_upper_even_square(36) == 36
+    assert find_upper_even_square(37) == 64
+    assert find_upper_even_square(43) == 64

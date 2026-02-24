@@ -56,6 +56,13 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
             num_epochs=cfg.get("num_epochs", 20),
             classical_epochs=cfg.get("classical_epochs", 20),
             lr=cfg.get("lr", 0.01),
+            encoding_name=cfg.get("encoding_name", "OneHot"),
+            num_photons=cfg.get("num_photons", None),
+            num_modes=cfg.get("num_modes", None),
+            num_features=cfg.get("num_features", None),
+            time=cfg.get("time", 0.01),
+            computation_space=comp_space,
+            shuffle_amplitude=shuffle_amplitude,
             run_dir=run_dir,
             generate_graph=generate_graph,
         )
@@ -66,6 +73,13 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
             num_epochs=cfg.get("num_epochs", 20),
             classical_epochs=cfg.get("classical_epochs", 20),
             lr=cfg.get("lr", 0.01),
+            encoding_name=cfg.get("encoding_name", "OneHot"),
+            num_photons=cfg.get("num_photons", None),
+            num_modes=cfg.get("num_modes", None),
+            num_features=cfg.get("num_features", None),
+            time=cfg.get("time", 0.01),
+            computation_space=comp_space,
+            shuffle_amplitude=shuffle_amplitude,
             run_dir=run_dir,
             generate_graph=generate_graph,
         )
@@ -134,14 +148,35 @@ def main():
 
     if args.exp_to_run == "DEFAULT":
         print("Running the DEFAULT experiment")
-        print("Not yet implemented")
-    elif args.exp_to_run == "BOND":
         print("Running the BAS experiment")
         run_bas(
             batch_size=args.batch_size,
             num_epochs=args.num_epochs,
             classical_epochs=args.classical_epochs,
             lr=args.lr,
+            encoding_name=args.encoding_name,
+            num_photons=args.num_photons,
+            num_modes=args.num_modes,
+            num_features=args.num_features,
+            time=args.time,
+            computation_space=comp_space,
+            shuffle_amplitude=args.shuffle_amplitude,
+            generate_graph=not args.dont_generate_graph,
+        )
+    elif args.exp_to_run == "BAS":
+        print("Running the BAS experiment")
+        run_bas(
+            batch_size=args.batch_size,
+            num_epochs=args.num_epochs,
+            classical_epochs=args.classical_epochs,
+            lr=args.lr,
+            encoding_name=args.encoding_name,
+            num_photons=args.num_photons,
+            num_modes=args.num_modes,
+            num_features=args.num_features,
+            time=args.time,
+            computation_space=comp_space,
+            shuffle_amplitude=args.shuffle_amplitude,
             generate_graph=not args.dont_generate_graph,
         )
     elif args.exp_to_run == "FIG1":

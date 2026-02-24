@@ -55,7 +55,7 @@ def test_amplitude_encoding():
         assert np.linalg.norm(state) == 1
         assert np.sum(state[11:]) == 0
         for i in range(11):
-            assert state[i] == np.sqrt(1 / 11)
+            assert state[i] == np.sqrt(1 / 11, dtype=np.complex128)
 
 
 def test_dense_encoding_of_features():
@@ -88,7 +88,7 @@ def test_unitary_evolution():
     Z_matrix_encoded[:2, 2:] = Z_matrix
     Z_matrix_encoded[2:, :2] = Z_matrix
 
-    unit_circuit = unitary_evolution(Z_matrix, time=0.1)
+    unit_circuit = unitary_evolution(torch.tensor(Z_matrix), time=0.1)
     target = np.array(pcvl.Matrix(sp.linalg.expm(-0.1j * Z_matrix_encoded)))
     computed = np.array(unit_circuit.compute_unitary())
 
@@ -98,13 +98,13 @@ def test_unitary_evolution():
     target = target * target_phase
     computed = computed * computed_phase
 
-    assert np.allclose(target, computed, rtol=0.01)
+    assert np.allclose(torch.tensor(target), computed, rtol=0.01)
 
 
 # TODO: Change once I can really understand the qubit--> mode maping
 def test_fourier_basis_v2():
     features = [0.3, 0.67]
-    target = np.zeros((8, 8), dtype=np.complex64)
+    target = np.zeros((8, 8), dtype=np.complex128)
     target[0:2, 0:2] = generate_fourrier_sub_matrix_v2(
         feature=features[0], photon_index=0
     )
@@ -137,7 +137,7 @@ def test_AngleEncoder():
 
     output_state = encoder(features)
 
-    assert output_state.shape == (10, 45, 45)
+    assert output_state.shape == (10, 64, 64)
     assert output_state.dtype == torch.complex128
     for i in output_state:
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
@@ -150,7 +150,7 @@ def test_AngleEncoder():
 
     output_state = encoder(features)
 
-    assert output_state.shape == (10, 55, 55)
+    assert output_state.shape == (10, 64, 64)
     assert output_state.dtype == torch.complex128
     for i in output_state:
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
@@ -166,7 +166,7 @@ def test_AmplitudeEncoder():
 
     output_state = encoder(features)
 
-    assert output_state.shape == (10, 45, 45)
+    assert output_state.shape == (10, 64, 64)
     assert output_state.dtype == torch.complex128
     for i in output_state:
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
@@ -179,7 +179,7 @@ def test_AmplitudeEncoder():
 
     output_state = encoder(features)
 
-    assert output_state.shape == (10, 55, 55)
+    assert output_state.shape == (10, 64, 64)
     assert output_state.dtype == torch.complex128
     for i in output_state:
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
@@ -192,7 +192,7 @@ def test_DenseAngleEncoder():
 
     output_state = encoder(features)
 
-    assert output_state.shape == (10, 2**5, 2**5)
+    assert output_state.shape == (10, 36, 36)
     assert output_state.dtype == torch.complex128
     for i in output_state:
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
@@ -205,7 +205,7 @@ def test_DenseAmplitudeEncoder():
 
     output_state = encoder(features)
 
-    assert output_state.shape == (10, 28, 28)
+    assert output_state.shape == (10, 36, 36)
     assert output_state.dtype == torch.complex128
     for i in output_state:
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
@@ -218,7 +218,7 @@ def test_DenseAmplitudeEncoder():
 
     output_state = encoder(features)
 
-    assert output_state.shape == (10, 28, 28)
+    assert output_state.shape == (10, 36, 36)
     assert output_state.dtype == torch.complex128
     for i in output_state:
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
@@ -227,11 +227,11 @@ def test_DenseAmplitudeEncoder():
 def test_TimeEvolutionEncoder():
     encoder = TimeEvolutionEncoder(num_photons=2, image_size=5)
 
-    features = torch.rand((10, 5, 5))
+    features = torch.rand((10, 5, 5), dtype=torch.complex128)
 
     output_state = encoder(features)
 
-    assert output_state.shape == (10, 45, 45)
+    assert output_state.shape == (10, 64, 64)
     assert output_state.dtype == torch.complex128
     for i in output_state:
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
@@ -240,7 +240,7 @@ def test_TimeEvolutionEncoder():
         image_size=4, num_photons=2, computation_space=ml.ComputationSpace.FOCK
     )
 
-    features = torch.rand((10, 4, 4))
+    features = torch.rand((10, 4, 4), dtype=torch.complex128)
 
     output_state = encoder(features)
 
@@ -258,7 +258,7 @@ def test_FourierEncoder():
 
     output_state = encoder(features)
 
-    assert output_state.shape == (10, 2**9, 2**9)
+    assert output_state.shape == (10, 576, 576)
     assert output_state.dtype == torch.complex128
     for i in output_state:
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)

@@ -1,6 +1,7 @@
 import json
 import sys
 from pathlib import Path
+import merlin as ml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -25,6 +26,13 @@ def run_bas(
     lr: float = 0.01,
     run_dir: Path = None,
     generate_graph: bool = False,
+    encoding_name: str = "OneHot",
+    num_photons: int = 0,
+    num_modes: int | None = None,
+    num_features: int = 0,
+    time: float = 0.0,
+    computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
+    shuffle_amplitude: bool = False,
 ):
     """
     Train classical, Qiskit, and Merlin models on Bars-and-Stripes.
@@ -48,13 +56,14 @@ def run_bas(
     -------
     None
     """
+    import numpy as np
+
     train_dataset, test_dataset = get_bas()
     train_loader = get_data_loader(train_dataset, batch_size=batch_size)
     test_loader = get_data_loader(test_dataset, batch_size=200)
 
     qiskit_model = qiskit_QCNN(num_qubits=4)
     merlin_model = PhotonicQCNN(
-        dims=(4, 4),
         conv_circuit="MZI",
         dense_circuit="MZI",
         measure_subset=None,
@@ -62,6 +71,13 @@ def run_bas(
         output_proba_type="state",
         output_formatting="Lex_grouping",
         num_classes=2,
+        encoding_name=encoding_name,
+        num_photons=num_photons,
+        num_modes=num_modes,
+        num_features=num_features,
+        time=time,
+        computation_space=computation_space,
+        shuffle_amplitude=shuffle_amplitude,
     )
     classical_model = CNN(input_image_size=4, num_layers=2, kernel_size=2)
 

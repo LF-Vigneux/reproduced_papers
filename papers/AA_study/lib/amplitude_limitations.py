@@ -25,6 +25,7 @@ from papers.AA_study.utils.datasets import (  # noqa: E402
     generate_fig_3_dataset,
     get_binary_dataset,
     get_data_loader,
+    get_spiral_dataset,
 )
 from papers.AA_study.utils.plots import (  # noqa: E402
     plot_amplitude_encoding_limitations,
@@ -461,12 +462,13 @@ def reproduce_fig_7(
     lr: float = 0.01,
     encoding_name: str = "OneHot",
     num_photons: int = 0,
-    num_modes: int = 0,
+    num_modes: int | None = None,
     num_features: int = 0,
     time: float = 0.0,
     computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
     shuffle_amplitude: bool = False,
     run_dir: Path = None,
+    merge_rgb_to_2d: bool = True,
 ):
     """
     Reproduce Fig. 7 by training Qiskit and Merlin QCNN models over multiple
@@ -475,7 +477,7 @@ def reproduce_fig_7(
     Parameters
     ----------
     dataset_to_run : str, optional
-        Dataset name passed to ``get_binary_dataset`` (for example ``"MNIST"``).
+        Dataset name passed to ``get_binary_dataset`` (for example ``"MNIST"``) or SPIRAL.
     sample_size_per_class : list[int], optional
         Number of training samples per class to evaluate. If ``None``, uses
         ``[1, 10, 100, 1000]``.
@@ -521,10 +523,22 @@ def reproduce_fig_7(
         sample_size_per_class = [1, 10, 100, 1000]
 
     for sampler_size in sample_size_per_class:
-        train_dataset, test_dataset = get_binary_dataset(
-            name=dataset_to_run,
-            num_samples_per_class=sampler_size,
-        )
+        if dataset_to_run == "SPIRAL":
+            train_dataset, test_dataset = get_spiral_dataset(
+                num_samples_per_class=sampler_size, num_features=num_features
+            )
+
+        else:
+            image_dim = np.sqrt(num_features)
+            if not image_dim % 1 == 0:
+                raise ValueError("num_features must be a square for a square image")
+
+            train_dataset, test_dataset = get_binary_dataset(
+                name=dataset_to_run,
+                num_samples_per_class=sampler_size,
+                merge_rgb_to_2d=merge_rgb_to_2d,
+                output_image_size=int(image_dim),
+            )
 
         train_loader = get_data_loader(train_dataset, batch_size=batch_size)
         test_loader = get_data_loader(test_dataset, batch_size=batch_size)
@@ -599,6 +613,178 @@ def reproduce_fig_7(
         generalization_errors=merlin_gen_error,
         testing_accuracies=merlin_accuracies,
         model_name="merlin",
+        run_dir=run_dir,
+    )
+    return (
+        qiskit_accuracies,
+        qiskit_losses,
+        qiskit_gen_error,
+        merlin_accuracies,
+        merlin_losses,
+        merlin_gen_error,
+    )
+
+
+def reproduce_fig_7_simple_model(
+    dataset_to_run: str = "MNIST",
+    sample_size_per_class: list[int] | None = None,
+    batch_size: int = 50,
+    num_epochs: int = 1000,
+    lr: float = 0.01,
+    encoding_name: str = "OneHot",
+    num_photons: int = 0,
+    num_modes: int | None = None,
+    num_features: int = 0,
+    time: float = 0.0,
+    computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
+    shuffle_amplitude: bool = False,
+    run_dir: Path = None,
+    merge_rgb_to_2d: bool = True,
+):
+    """
+    Reproduce Fig. 7 by training Qiskit and Merlin simple models over multiple
+    sample sizes for a selected binary dataset.
+
+    Parameters
+    ----------
+    dataset_to_run : str, optional
+        Dataset name passed to ``get_binary_dataset`` (for example ``"MNIST"``) or SPIRAL.
+    sample_size_per_class : list[int], optional
+        Number of training samples per class to evaluate. If ``None``, uses
+        ``[1, 10, 100, 1000]``.
+    batch_size : int, optional
+        Mini-batch size for train and test loaders.
+    num_epochs : int, optional
+        Number of optimization epochs for each model and sample size.
+    lr : float, optional
+        Learning rate used by ``basic_model_training``.
+    encoding_name : str, optional
+        Encoding strategy forwarded to ``PhotonicQCNN``.
+    num_photons : int, optional
+        Number of photons used by the Merlin photonic model.
+    num_modes : int, optional
+        Number of modes used by the Merlin photonic model.
+    num_features : int, optional
+        Number of input features expected by the selected encoding.
+    time : float, optional
+        Evolution time parameter used by time-based encodings.
+    computation_space : ml.ComputationSpace, optional
+        Merlin computation space used for simulation and measurement.
+    shuffle_amplitude: bool, optional,
+        Flag to enable the random assignation of amplitudes to modes in MerLin's amplitude encodings.
+    run_dir : pathlib.Path, optional
+        Optional output directory for generated plots.
+
+    Returns
+    -------
+    tuple[list, list, list, list, list, list]
+        ``(qiskit_accuracies, qiskit_losses, qiskit_gen_error,``
+        ``merlin_accuracies, merlin_losses, merlin_gen_error)`` where each
+        entry stores per-sample-size metric histories.
+    """
+    qiskit_accuracies = []
+    qiskit_losses = []
+    qiskit_gen_error = []
+
+    merlin_accuracies = []
+    merlin_losses = []
+    merlin_gen_error = []
+
+    if sample_size_per_class is None:
+        sample_size_per_class = [1, 10, 100, 1000]
+
+    for sampler_size in sample_size_per_class:
+        if dataset_to_run == "SPIRAL":
+            train_dataset, test_dataset = get_spiral_dataset(
+                num_samples_per_class=sampler_size, num_features=num_features
+            )
+
+        else:
+            image_dim = np.sqrt(num_features)
+            if not image_dim % 1 == 0:
+                raise ValueError("num_features must be a square for a square image")
+
+            train_dataset, test_dataset = get_binary_dataset(
+                name=dataset_to_run,
+                num_samples_per_class=sampler_size,
+                merge_rgb_to_2d=merge_rgb_to_2d,
+                output_image_size=int(image_dim),
+            )
+
+        train_loader = get_data_loader(train_dataset, batch_size=batch_size)
+        test_loader = get_data_loader(test_dataset, batch_size=batch_size)
+
+        # TODO Change to new simple classes
+        qiskit_model = qiskit_QCNN()
+        merlin_model = PhotonicQCNN(
+            conv_circuit="MZI",
+            dense_circuit="MZI",
+            dense_added_modes=0,
+            output_proba_type="state",
+            output_formatting="Lex_grouping",
+            num_classes=2,
+            measure_subset=None,
+            encoding_name=encoding_name,
+            num_photons=num_photons,
+            num_modes=num_modes,
+            num_features=num_features,
+            time=time,
+            computation_space=computation_space,
+            shuffle_amplitude=shuffle_amplitude,
+        )
+
+        print("Qiskit model:")
+        _, accuracy, loss, gen_error = basic_model_training(
+            qiskit_model,
+            train_loader,
+            lr=lr,
+            num_epochs=num_epochs,
+            test_loader=test_loader,
+        )
+        qiskit_accuracies.append(accuracy)
+        qiskit_losses.append(loss)
+        qiskit_gen_error.append(gen_error)
+
+        print("MerLin model")
+        _, accuracy, loss, gen_error = basic_model_training(
+            merlin_model,
+            train_loader,
+            lr=lr,
+            num_epochs=num_epochs,
+            test_loader=test_loader,
+        )
+        merlin_accuracies.append(accuracy)
+        merlin_losses.append(loss)
+        merlin_gen_error.append(gen_error)
+
+        json_payload = {
+            "qiskit_accuracies": [[float(v) for v in t] for t in qiskit_accuracies],
+            "qiskit_losses": [[float(v) for v in t] for t in qiskit_losses],
+            "qiskit_gen_error": [[float(v) for v in t] for t in qiskit_gen_error],
+            "merlin_accuracies": [[float(v) for v in t] for t in merlin_accuracies],
+            "merlin_losses": [[float(v) for v in t] for t in merlin_losses],
+            "merlin_gen_error": [[float(v) for v in t] for t in merlin_gen_error],
+        }
+
+        json_str = json.dumps(json_payload, indent=4)
+        current_dir = str(Path(__file__).parent.parent.resolve()) + "/results/"
+        with open(current_dir + "fig_7_simple_data.json", "w") as f:
+            f.write(json_str)
+
+    plot_fig_7(
+        sample_sizes=sample_size_per_class,
+        training_losses=qiskit_losses,
+        generalization_errors=qiskit_gen_error,
+        testing_accuracies=qiskit_accuracies,
+        model_name="qiskit_simple",
+        run_dir=run_dir,
+    )
+    plot_fig_7(
+        sample_sizes=sample_size_per_class,
+        training_losses=merlin_losses,
+        generalization_errors=merlin_gen_error,
+        testing_accuracies=merlin_accuracies,
+        model_name="merlin_simple",
         run_dir=run_dir,
     )
     return (

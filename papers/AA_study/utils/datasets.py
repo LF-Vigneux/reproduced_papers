@@ -8,6 +8,18 @@ from medmnist import INFO
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from torchvision import datasets
 from torchvision.transforms import Compose, Resize, ToTensor
+from pathlib import Path
+import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from papers.shared.HQNN_MythOrReality.data import (
+    load_spiral_dataset,
+    SpiralDatasetConfig,
+)
 
 
 def generate_fig_1_dataset(
@@ -351,6 +363,20 @@ def dataset_to_tensordataset(dataset):
     return TensorDataset(X, Y)
 
 
+def _merge_rgb_batch_to_2d(tensor_ds: TensorDataset) -> TensorDataset:
+    """
+    Merge RGB channels into a single 2D square image per sample.
+
+    Input shape must be (N, 3, H, W). Output shape is (N, H, W).
+    """
+    x, y = tensor_ds.tensors
+    if x.ndim == 4 and x.shape[1] == 3:
+        # Standard luminance conversion keeps the image square.
+        weights = x.new_tensor([0.2989, 0.5870, 0.1140]).view(1, 3, 1, 1)
+        x = (x * weights).sum(dim=1)
+    return TensorDataset(x, y)
+
+
 def get_binary_dataset(
     name: str = "MNIST",
     num_samples_per_class: int = 2000,
@@ -358,6 +384,8 @@ def get_binary_dataset(
     root: str = "../../data/AA_study/",
     seed: int = 0,
     shuffle: bool = True,
+    merge_rgb_to_2d: bool = False,
+    output_image_size: int = 32,
 ):
     """
     Returns (train_tensor_ds, eval_tensor_ds) as TensorDataset objects.
@@ -369,18 +397,21 @@ def get_binary_dataset(
     Notes:
       - num_samples_per_class controls train size only.
       - eval_samples_per_class controls eval/test size only.
+      - if merge_rgb_to_2d is True, RGB tensors (N,3,H,W) are converted to (N,H,W).
     """
 
     name_l = name.strip().lower()
-    transform_32 = Compose([Resize((32, 32)), ToTensor()])
+    image_transformation = Compose(
+        [Resize((output_image_size, output_image_size)), ToTensor()]
+    )
 
     # ---- MNIST ----
     if name_l == "mnist":
         train_base = datasets.MNIST(
-            root=root, train=True, download=True, transform=transform_32
+            root=root, train=True, download=True, transform=image_transformation
         )
         eval_base = datasets.MNIST(
-            root=root, train=False, download=True, transform=transform_32
+            root=root, train=False, download=True, transform=image_transformation
         )
         keep = [0, 1]
 
@@ -391,15 +422,17 @@ def get_binary_dataset(
             eval_base, keep, eval_samples_per_class, seed=seed + 1, shuffle=shuffle
         )
 
-        return dataset_to_tensordataset(train_bin), dataset_to_tensordataset(eval_bin)
+        train_ds = dataset_to_tensordataset(train_bin)
+        eval_ds = dataset_to_tensordataset(eval_bin)
+        return train_ds, eval_ds
 
     # ---- CIFAR-10 ----
     if name_l in ["cifar10", "cifar-10"]:
         train_base = datasets.CIFAR10(
-            root=root, train=True, download=True, transform=transform_32
+            root=root, train=True, download=True, transform=image_transformation
         )
         eval_base = datasets.CIFAR10(
-            root=root, train=False, download=True, transform=transform_32
+            root=root, train=False, download=True, transform=image_transformation
         )
         keep = [0, 2]  # airplane vs bird
 
@@ -410,11 +443,18 @@ def get_binary_dataset(
             eval_base, keep, eval_samples_per_class, seed=seed + 1, shuffle=shuffle
         )
 
-        return dataset_to_tensordataset(train_bin), dataset_to_tensordataset(eval_bin)
+        train_ds = dataset_to_tensordataset(train_bin)
+        eval_ds = dataset_to_tensordataset(eval_bin)
+        if merge_rgb_to_2d:
+            train_ds = _merge_rgb_batch_to_2d(train_ds)
+            eval_ds = _merge_rgb_batch_to_2d(eval_ds)
+        return train_ds, eval_ds
 
     # ---- EuroSAT ----
     if name_l in ["eurosat", "euro_sat", "euro-sat"]:
-        base = datasets.EuroSAT(root=root, download=True, transform=transform_32)
+        base = datasets.EuroSAT(
+            root=root, download=True, transform=image_transformation
+        )
 
         forest_idx = base.class_to_idx["Forest"]
         sealake_idx = base.class_to_idx["SeaLake"]
@@ -427,7 +467,12 @@ def get_binary_dataset(
             base, keep, eval_samples_per_class, seed=seed + 1, shuffle=shuffle
         )
 
-        return dataset_to_tensordataset(train_bin), dataset_to_tensordataset(eval_bin)
+        train_ds = dataset_to_tensordataset(train_bin)
+        eval_ds = dataset_to_tensordataset(eval_bin)
+        if merge_rgb_to_2d:
+            train_ds = _merge_rgb_batch_to_2d(train_ds)
+            eval_ds = _merge_rgb_batch_to_2d(eval_ds)
+        return train_ds, eval_ds
 
     # ---- PathMNIST ----
     if name_l in ["pathmnist", "path_mnist", "path-mnist"]:
@@ -435,10 +480,10 @@ def get_binary_dataset(
         DataClass = getattr(medmnist, info["python_class"])
 
         train_base = DataClass(
-            split="train", download=True, root=root, transform=transform_32
+            split="train", download=True, root=root, transform=image_transformation
         )
         eval_base = DataClass(
-            split="test", download=True, root=root, transform=transform_32
+            split="test", download=True, root=root, transform=image_transformation
         )
 
         # find adipose/background indices
@@ -457,6 +502,28 @@ def get_binary_dataset(
             eval_base, keep, eval_samples_per_class, seed=seed + 1, shuffle=shuffle
         )
 
-        return dataset_to_tensordataset(train_bin), dataset_to_tensordataset(eval_bin)
+        train_ds = dataset_to_tensordataset(train_bin)
+        eval_ds = dataset_to_tensordataset(eval_bin)
+        if merge_rgb_to_2d:
+            train_ds = _merge_rgb_batch_to_2d(train_ds)
+            eval_ds = _merge_rgb_batch_to_2d(eval_ds)
+        return train_ds, eval_ds
 
     raise ValueError("Unknown dataset name. Use MNIST, CIFAR10, EuroSAT, or PathMNIST.")
+
+
+def get_spiral_dataset(
+    num_samples_per_class: int, num_features: int
+) -> tuple[TensorDataset, TensorDataset]:
+    dataset_config = SpiralDatasetConfig(
+        num_instances=num_samples_per_class,
+        num_features=num_features,
+        num_classes=2,
+        test_size=0.2,
+    )
+    x_train_tensor, x_test_tensor, y_train_tensor, y_test_tensor, _, _ = (
+        load_spiral_dataset(dataset_config)
+    )
+    return TensorDataset(x_train_tensor, y_train_tensor), TensorDataset(
+        x_test_tensor, y_test_tensor
+    )

@@ -11,17 +11,15 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from papers.AA_study.utils.utils import find_mode_photon_config  # noqa: E402
-from papers.photonic_QCNN.lib.src.qcnn_paper import (  # noqa: E402
+from papers.AA_study.utils.qlayers_utils import (  # noqa: E402
+    marginalize_photon_presence,
+    generate_partial_fock_states,
+    partial_measurement_output_size,
     Measure,
     QConv2d,
     QDense,
     QPooling,
     generate_all_fock_states_list,
-)
-from papers.AA_study.utils.qlayers_utils import (  # noqa: E402
-    marginalize_photon_presence,
-    generate_partial_fock_states,
-    partial_measurement_output_size,
 )
 from papers.AA_study.lib.encodings_merlin import choose_encoding
 
@@ -40,8 +38,8 @@ class ReuploadingModule(nn.Module):
             x = x.reshape(x.shape[0], np.prod(x.shape[1:]))
 
         output_tensors = torch.empty(
-            (x.shape[0], self.output_size, self.output_size),
-            dtype=complex,
+            (x.shape[0], self.output_size),
+            dtype=float,
         )
 
         for i, tensor in enumerate(x):
@@ -231,13 +229,10 @@ class PhotonicQCNN(nn.Module):
         shuffle_amplitude: bool = False,
     ):
         super().__init__()
-        self.num_modes_end = dims[0] + dense_added_modes
-        self.num_modes_measured = (
-            measure_subset if measure_subset is not None else dims[0]
-        )
-
         self.encoding = choose_encoding(
             encoding_name=encoding_name,
+            return_sv=False,
+            change_output_size_even_square=True,
             num_photons=num_photons,
             num_modes=num_modes,
             num_features=num_features,
@@ -245,7 +240,15 @@ class PhotonicQCNN(nn.Module):
             computation_space=computation_space,
             shuffle_amplitude=shuffle_amplitude,
         )
-        dims = self.encoding.output_size
+        dims = (
+            int(np.sqrt(self.encoding.output_size)),
+            int(np.sqrt(self.encoding.output_size)),
+        )
+
+        self.num_modes_end = dims[0] + dense_added_modes
+        self.num_modes_measured = (
+            measure_subset if measure_subset is not None else dims[0]
+        )
 
         self.conv2d = QConv2d(dims, kernel_size=2, stride=2, circuit=conv_circuit)
         self.pooling = QPooling(dims, kernel_size=2)
@@ -318,6 +321,6 @@ class PhotonicQCNN(nn.Module):
             probs = marginalize_photon_presence(self.keys, probs)
 
         output = self.output_mapping(probs)
-        output = output * 66
+        output = output
 
         return output
