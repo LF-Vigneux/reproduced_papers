@@ -18,6 +18,7 @@ from papers.AA_study.lib.qlayers import (  # noqa: E402
     PhotonicQCNN,
     amplitude_encoding_simple,
     angle_encoding_simple,
+    MerlinSimpleModel,
 )
 from papers.AA_study.utils.datasets import (  # noqa: E402
     generate_fig_1_dataset,
@@ -26,6 +27,8 @@ from papers.AA_study.utils.datasets import (  # noqa: E402
     get_binary_dataset,
     get_data_loader,
     get_spiral_dataset,
+    get_moons_dataset,
+    get_circles_dataset,
 )
 from papers.AA_study.utils.plots import (  # noqa: E402
     plot_amplitude_encoding_limitations,
@@ -455,11 +458,13 @@ def reproduce_fig_5(
 
 
 def reproduce_fig_7(
+    reproduce_gate_based: bool = True,
     dataset_to_run: str = "MNIST",
     sample_size_per_class: list[int] | None = None,
     batch_size: int = 50,
     num_epochs: int = 1000,
     lr: float = 0.01,
+    noise: float = 0,
     encoding_name: str = "OneHot",
     num_photons: int = 0,
     num_modes: int | None = None,
@@ -527,7 +532,14 @@ def reproduce_fig_7(
             train_dataset, test_dataset = get_spiral_dataset(
                 num_samples_per_class=sampler_size, num_features=num_features
             )
-
+        elif dataset_to_run == "MOONS":
+            train_dataset, test_dataset = get_moons_dataset(
+                num_samples_per_class=sampler_size, noise=noise
+            )
+        elif dataset_to_run == "CIRCLES":
+            train_dataset, test_dataset = get_circles_dataset(
+                num_samples_per_class=sampler_size, noise=noise
+            )
         else:
             image_dim = np.sqrt(num_features)
             if not image_dim % 1 == 0:
@@ -543,7 +555,21 @@ def reproduce_fig_7(
         train_loader = get_data_loader(train_dataset, batch_size=batch_size)
         test_loader = get_data_loader(test_dataset, batch_size=batch_size)
 
-        qiskit_model = qiskit_QCNN()
+        print("Qiskit model:")
+        if reproduce_gate_based:
+            qiskit_model = qiskit_QCNN()
+            _, accuracy, loss, gen_error = basic_model_training(
+                qiskit_model,
+                train_loader,
+                lr=lr,
+                num_epochs=num_epochs,
+                test_loader=test_loader,
+            )
+            qiskit_accuracies.append(accuracy)
+            qiskit_losses.append(loss)
+            qiskit_gen_error.append(gen_error)
+
+        print("MerLin model")
         merlin_model = PhotonicQCNN(
             conv_circuit="MZI",
             dense_circuit="MZI",
@@ -560,20 +586,6 @@ def reproduce_fig_7(
             computation_space=computation_space,
             shuffle_amplitude=shuffle_amplitude,
         )
-
-        print("Qiskit model:")
-        _, accuracy, loss, gen_error = basic_model_training(
-            qiskit_model,
-            train_loader,
-            lr=lr,
-            num_epochs=num_epochs,
-            test_loader=test_loader,
-        )
-        qiskit_accuracies.append(accuracy)
-        qiskit_losses.append(loss)
-        qiskit_gen_error.append(gen_error)
-
-        print("MerLin model")
         _, accuracy, loss, gen_error = basic_model_training(
             merlin_model,
             train_loader,
@@ -585,28 +597,35 @@ def reproduce_fig_7(
         merlin_losses.append(loss)
         merlin_gen_error.append(gen_error)
 
-        json_payload = {
-            "qiskit_accuracies": [[float(v) for v in t] for t in qiskit_accuracies],
-            "qiskit_losses": [[float(v) for v in t] for t in qiskit_losses],
-            "qiskit_gen_error": [[float(v) for v in t] for t in qiskit_gen_error],
-            "merlin_accuracies": [[float(v) for v in t] for t in merlin_accuracies],
-            "merlin_losses": [[float(v) for v in t] for t in merlin_losses],
-            "merlin_gen_error": [[float(v) for v in t] for t in merlin_gen_error],
-        }
+        if reproduce_gate_based:
+            json_payload = {
+                "qiskit_accuracies": [[float(v) for v in t] for t in qiskit_accuracies],
+                "qiskit_losses": [[float(v) for v in t] for t in qiskit_losses],
+                "qiskit_gen_error": [[float(v) for v in t] for t in qiskit_gen_error],
+                "merlin_accuracies": [[float(v) for v in t] for t in merlin_accuracies],
+                "merlin_losses": [[float(v) for v in t] for t in merlin_losses],
+                "merlin_gen_error": [[float(v) for v in t] for t in merlin_gen_error],
+            }
+        else:
+            json_payload = {
+                "merlin_accuracies": [[float(v) for v in t] for t in merlin_accuracies],
+                "merlin_losses": [[float(v) for v in t] for t in merlin_losses],
+                "merlin_gen_error": [[float(v) for v in t] for t in merlin_gen_error],
+            }
 
         json_str = json.dumps(json_payload, indent=4)
         current_dir = str(Path(__file__).parent.parent.resolve()) + "/results/"
         with open(current_dir + "fig_7_data.json", "w") as f:
             f.write(json_str)
-
-    plot_fig_7(
-        sample_sizes=sample_size_per_class,
-        training_losses=qiskit_losses,
-        generalization_errors=qiskit_gen_error,
-        testing_accuracies=qiskit_accuracies,
-        model_name="qiskit",
-        run_dir=run_dir,
-    )
+    if reproduce_gate_based:
+        plot_fig_7(
+            sample_sizes=sample_size_per_class,
+            training_losses=qiskit_losses,
+            generalization_errors=qiskit_gen_error,
+            testing_accuracies=qiskit_accuracies,
+            model_name="qiskit",
+            run_dir=run_dir,
+        )
     plot_fig_7(
         sample_sizes=sample_size_per_class,
         training_losses=merlin_losses,
@@ -615,14 +634,21 @@ def reproduce_fig_7(
         model_name="merlin",
         run_dir=run_dir,
     )
-    return (
-        qiskit_accuracies,
-        qiskit_losses,
-        qiskit_gen_error,
-        merlin_accuracies,
-        merlin_losses,
-        merlin_gen_error,
-    )
+    if reproduce_gate_based:
+        return (
+            qiskit_accuracies,
+            qiskit_losses,
+            qiskit_gen_error,
+            merlin_accuracies,
+            merlin_losses,
+            merlin_gen_error,
+        )
+    else:
+        return (
+            merlin_accuracies,
+            merlin_losses,
+            merlin_gen_error,
+        )
 
 
 def reproduce_fig_7_simple_model(
@@ -631,6 +657,7 @@ def reproduce_fig_7_simple_model(
     batch_size: int = 50,
     num_epochs: int = 1000,
     lr: float = 0.01,
+    noise: float = 0,
     encoding_name: str = "OneHot",
     num_photons: int = 0,
     num_modes: int | None = None,
@@ -682,23 +709,27 @@ def reproduce_fig_7_simple_model(
         ``merlin_accuracies, merlin_losses, merlin_gen_error)`` where each
         entry stores per-sample-size metric histories.
     """
-    qiskit_accuracies = []
-    qiskit_losses = []
-    qiskit_gen_error = []
 
     merlin_accuracies = []
     merlin_losses = []
     merlin_gen_error = []
 
     if sample_size_per_class is None:
-        sample_size_per_class = [1, 10, 100, 1000]
+        sample_size_per_class = [10, 100, 500, 1000]
 
     for sampler_size in sample_size_per_class:
         if dataset_to_run == "SPIRAL":
             train_dataset, test_dataset = get_spiral_dataset(
                 num_samples_per_class=sampler_size, num_features=num_features
             )
-
+        elif dataset_to_run == "MOONS":
+            train_dataset, test_dataset = get_moons_dataset(
+                num_samples_per_class=sampler_size, noise=noise
+            )
+        elif dataset_to_run == "CIRCLES":
+            train_dataset, test_dataset = get_circles_dataset(
+                num_samples_per_class=sampler_size, noise=noise
+            )
         else:
             image_dim = np.sqrt(num_features)
             if not image_dim % 1 == 0:
@@ -714,16 +745,9 @@ def reproduce_fig_7_simple_model(
         train_loader = get_data_loader(train_dataset, batch_size=batch_size)
         test_loader = get_data_loader(test_dataset, batch_size=batch_size)
 
-        # TODO Change to new simple classes
-        qiskit_model = qiskit_QCNN()
-        merlin_model = PhotonicQCNN(
-            conv_circuit="MZI",
-            dense_circuit="MZI",
-            dense_added_modes=0,
-            output_proba_type="state",
-            output_formatting="Lex_grouping",
-            num_classes=2,
-            measure_subset=None,
+        print("MerLin model")
+        merlin_model = MerlinSimpleModel(
+            num_layers=4,
             encoding_name=encoding_name,
             num_photons=num_photons,
             num_modes=num_modes,
@@ -732,20 +756,6 @@ def reproduce_fig_7_simple_model(
             computation_space=computation_space,
             shuffle_amplitude=shuffle_amplitude,
         )
-
-        print("Qiskit model:")
-        _, accuracy, loss, gen_error = basic_model_training(
-            qiskit_model,
-            train_loader,
-            lr=lr,
-            num_epochs=num_epochs,
-            test_loader=test_loader,
-        )
-        qiskit_accuracies.append(accuracy)
-        qiskit_losses.append(loss)
-        qiskit_gen_error.append(gen_error)
-
-        print("MerLin model")
         _, accuracy, loss, gen_error = basic_model_training(
             merlin_model,
             train_loader,
@@ -758,9 +768,6 @@ def reproduce_fig_7_simple_model(
         merlin_gen_error.append(gen_error)
 
         json_payload = {
-            "qiskit_accuracies": [[float(v) for v in t] for t in qiskit_accuracies],
-            "qiskit_losses": [[float(v) for v in t] for t in qiskit_losses],
-            "qiskit_gen_error": [[float(v) for v in t] for t in qiskit_gen_error],
             "merlin_accuracies": [[float(v) for v in t] for t in merlin_accuracies],
             "merlin_losses": [[float(v) for v in t] for t in merlin_losses],
             "merlin_gen_error": [[float(v) for v in t] for t in merlin_gen_error],
@@ -768,29 +775,18 @@ def reproduce_fig_7_simple_model(
 
         json_str = json.dumps(json_payload, indent=4)
         current_dir = str(Path(__file__).parent.parent.resolve()) + "/results/"
-        with open(current_dir + "fig_7_simple_data.json", "w") as f:
+        with open(current_dir + "fig_7_data.json", "w") as f:
             f.write(json_str)
 
-    plot_fig_7(
-        sample_sizes=sample_size_per_class,
-        training_losses=qiskit_losses,
-        generalization_errors=qiskit_gen_error,
-        testing_accuracies=qiskit_accuracies,
-        model_name="qiskit_simple",
-        run_dir=run_dir,
-    )
     plot_fig_7(
         sample_sizes=sample_size_per_class,
         training_losses=merlin_losses,
         generalization_errors=merlin_gen_error,
         testing_accuracies=merlin_accuracies,
-        model_name="merlin_simple",
+        model_name="merlin",
         run_dir=run_dir,
     )
     return (
-        qiskit_accuracies,
-        qiskit_losses,
-        qiskit_gen_error,
         merlin_accuracies,
         merlin_losses,
         merlin_gen_error,

@@ -454,7 +454,7 @@ def plot_fig_7(
                 raise ValueError("generalization_errors contains an empty curve")
             gen_error_values.append(value[-1])
         else:
-            gen_error_values.append(value)
+            gen_error_values.append(value[-1])
     ax = axes[1]
     ax.plot(
         sample_sizes,

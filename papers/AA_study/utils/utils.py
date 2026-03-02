@@ -353,7 +353,7 @@ def parse_args():
         "--exp_to_run",
         type=str,
         default="BAS",
-        help="Which experiment to run between 'BAS', 'FIG1', 'FIG2', 'FIG3' and 'FIG4'  (default: 'BAS')",
+        help="Which experiment to run between 'BAS', 'FIG1', 'FIG2', 'FIG3', 'FIG4', 'FIG5', 'FIG7' and 'SIMPLE_FIG7' (default: 'BAS')",
     )
     parser.add_argument(
         "--dataset_to_run",
@@ -386,6 +386,12 @@ def parse_args():
         help="The learning rate of the optimizers (default: 0.01)",
     )
     parser.add_argument(
+        "--noise",
+        type=float,
+        default=0.0,
+        help="The noise to induce in the circles and moons datasets (default: 0.0)",
+    )
+    parser.add_argument(
         "--num_samples_per_class",
         type=int,
         default=2000,
@@ -407,6 +413,11 @@ def parse_args():
         "--dont_generate_graph",
         action="store_true",
         help="Disable graph generation",
+    )
+    parser.add_argument(
+        "--dont_reproduce_gate_based",
+        action="store_true",
+        help="Disable the experiment of the gate-based QCNN",
     )
     parser.add_argument(
         "--encoding_name",

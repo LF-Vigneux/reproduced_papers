@@ -131,7 +131,12 @@ def test_fourier_basis_v2():
 
 
 def test_AngleEncoder():
-    encoder = AngleEncoder(num_features=10, num_photons=2)
+    encoder = AngleEncoder(
+        num_features=10,
+        num_photons=2,
+        change_output_size_even_square=True,
+        return_sv=False,
+    )
 
     features = torch.rand((10, 10))
 
@@ -143,7 +148,11 @@ def test_AngleEncoder():
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
 
     encoder = AngleEncoder(
-        num_features=10, num_photons=2, computation_space=ml.ComputationSpace.FOCK
+        num_features=10,
+        num_photons=2,
+        computation_space=ml.ComputationSpace.FOCK,
+        change_output_size_even_square=True,
+        return_sv=False,
     )
 
     features = torch.rand((10, 10))
@@ -160,6 +169,8 @@ def test_AmplitudeEncoder():
     encoder = AmplitudeEncoder(
         num_modes=10,
         num_photons=2,
+        change_output_size_even_square=True,
+        return_sv=False,
     )
 
     features = torch.rand((10, 30))
@@ -172,7 +183,11 @@ def test_AmplitudeEncoder():
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
 
     encoder = AmplitudeEncoder(
-        num_modes=10, num_photons=2, computation_space=ml.ComputationSpace.FOCK
+        num_modes=10,
+        num_photons=2,
+        computation_space=ml.ComputationSpace.FOCK,
+        change_output_size_even_square=True,
+        return_sv=False,
     )
 
     features = torch.rand((10, 45))
@@ -186,7 +201,11 @@ def test_AmplitudeEncoder():
 
 
 def test_DenseAngleEncoder():
-    encoder = DenseAngleEncoder(num_features=10)
+    encoder = DenseAngleEncoder(
+        num_features=10,
+        change_output_size_even_square=True,
+        return_sv=False,
+    )
 
     features = torch.rand((10, 10))
 
@@ -199,7 +218,12 @@ def test_DenseAngleEncoder():
 
 
 def test_DenseAmplitudeEncoder():
-    encoder = DenseAmplitudeEncoder(num_photons=2, num_modes=8)
+    encoder = DenseAmplitudeEncoder(
+        num_photons=2,
+        num_modes=8,
+        change_output_size_even_square=True,
+        return_sv=False,
+    )
 
     features = torch.rand((10, 54))
 
@@ -211,7 +235,11 @@ def test_DenseAmplitudeEncoder():
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
 
     encoder = DenseAmplitudeEncoder(
-        num_modes=7, num_photons=2, computation_space=ml.ComputationSpace.FOCK
+        num_modes=7,
+        num_photons=2,
+        computation_space=ml.ComputationSpace.FOCK,
+        change_output_size_even_square=True,
+        return_sv=False,
     )
 
     features = torch.rand((10, 54))
@@ -225,7 +253,12 @@ def test_DenseAmplitudeEncoder():
 
 
 def test_TimeEvolutionEncoder():
-    encoder = TimeEvolutionEncoder(num_photons=2, image_size=5)
+    encoder = TimeEvolutionEncoder(
+        num_photons=2,
+        image_size=5,
+        change_output_size_even_square=True,
+        return_sv=False,
+    )
 
     features = torch.rand((10, 5, 5), dtype=torch.complex128)
 
@@ -237,7 +270,11 @@ def test_TimeEvolutionEncoder():
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
 
     encoder = TimeEvolutionEncoder(
-        image_size=4, num_photons=2, computation_space=ml.ComputationSpace.FOCK
+        image_size=4,
+        num_photons=2,
+        computation_space=ml.ComputationSpace.FOCK,
+        change_output_size_even_square=True,
+        return_sv=False,
     )
 
     features = torch.rand((10, 4, 4), dtype=torch.complex128)
@@ -250,9 +287,13 @@ def test_TimeEvolutionEncoder():
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
 
 
-# TODO: Change once I can really understand the qubit--> mode maping
 def test_FourierEncoder():
-    encoder = FourierEncoder(num_features=3, n_photon_per_feature=3)
+    encoder = FourierEncoder(
+        num_features=3,
+        n_photon_per_feature=3,
+        change_output_size_even_square=True,
+        return_sv=False,
+    )
 
     features = torch.rand((10, 3))
 

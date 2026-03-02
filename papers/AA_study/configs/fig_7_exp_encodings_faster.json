@@ -6,6 +6,7 @@
     "batch_size":50,
     "num_epochs":100,
     "lr":0.01,
+    "noise":0.0,
     "encoding_name": "DenseAngle",
     "num_modes": 4,
     "num_photons":8,
@@ -14,5 +15,6 @@
     "computation_space":"UNBUNCHED",
     "shuffle_amplitude":"False",
     "sample_size_per_class_to_test":[1,10,100,1000],
-    "dont_generate_graph":"False"
+    "dont_generate_graph":"False",
+    "dont_reproduce_gate_based":"True"
 }

@@ -208,6 +208,9 @@ class OneHotEncoder(nn.Module):
         super().__init__()
         self.output_size = image_size**2
         self.return_sv = return_sv
+        self.num_photons = 1
+        self.num_modes = 2 * image_size
+        self.computation_space = ml.ComputationSpace.UNBUNCHED
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.dim() == 3:
@@ -242,14 +245,14 @@ class AngleEncoder(nn.Module):
         super().__init__()
         self.num_features = num_features
         self.num_photons = num_photons
+        self.num_modes = num_features if num_modes is None else num_modes
         self.computation_space = computation_space
+
         self.return_sv = return_sv
-        circuit = ml.CircuitBuilder(
-            n_modes=num_features if num_modes is None else num_modes
-        )
+        circuit = ml.CircuitBuilder(n_modes=self.num_modes)
         features_assigned = 0
         while features_assigned < self.num_features:
-            circuit.add_entangling_layer(trainable=False)
+            circuit.add_entangling_layer(trainable=True)
             if features_assigned + circuit.n_modes < self.num_features:
                 circuit.add_angle_encoding()
                 features_assigned += circuit.n_modes
@@ -258,7 +261,7 @@ class AngleEncoder(nn.Module):
                     modes=[i for i in range(self.num_features - features_assigned)]
                 )
                 features_assigned += self.num_features - features_assigned
-            circuit.add_entangling_layer(trainable=False)
+            circuit.add_entangling_layer(trainable=True)
 
         self.qlayer = ml.QuantumLayer(
             builder=circuit,
@@ -284,7 +287,6 @@ class AngleEncoder(nn.Module):
             x = torch.reshape(x, (x.shape[0], np.prod(x.shape[1:])))
 
         # Normalize for inputs
-        x /= x.max().item()
         amplitudes_output = self.encoder(x)
 
         if self.return_sv:
@@ -406,10 +408,13 @@ class DenseAngleEncoder(nn.Module):
         width = len(str(num_features - 1))
 
         self.num_features = num_features
+        self.num_modes = num_features if num_modes is None else num_modes
+        self.num_photons = int(np.ceil(self.num_modes / 2))
+        self.computation_space = ml.ComputationSpace.DUAL_RAIL
         self.return_sv = return_sv
         perceval_circuit = dense_angle_encoding_circuit(
             num_features=num_features,
-            num_modes=num_features if num_modes is None else num_modes,
+            num_modes=self.num_modes,
         )
 
         input_state = [
@@ -437,8 +442,6 @@ class DenseAngleEncoder(nn.Module):
             x = x.unsqueeze(0)
         if x.dim() > 2:
             x = x.reshape(x.shape[0], np.prod(x.shape[1:]))
-
-        x /= x.max().item()
 
         amplitudes_output = self.encoder(x)
 
@@ -564,7 +567,7 @@ class TimeEvolutionEncoder(nn.Module):
         """
         super().__init__()
         self.time = time
-        self.n_photons = num_photons
+        self.num_photons = num_photons
         self.image_size = image_size
         self.computation_space = computation_space
         self.return_sv = return_sv
@@ -572,12 +575,13 @@ class TimeEvolutionEncoder(nn.Module):
         base_circuit = ml.CircuitBuilder(n_modes=2 * image_size)
         base_circuit.add_entangling_layer(trainable=False)
         self.base_perceval = base_circuit.to_pcvl_circuit()
+        self.num_modes = self.base_perceval.m
 
         if self.computation_space is ml.ComputationSpace.UNBUNCHED:
-            self.output_size = math.comb(self.image_size * 2, self.n_photons)
+            self.output_size = math.comb(self.image_size * 2, self.num_photons)
         elif self.computation_space is ml.ComputationSpace.FOCK:
             self.output_size = math.comb(
-                (self.image_size * 2) + self.n_photons - 1, self.n_photons
+                (self.image_size * 2) + self.num_photons - 1, self.num_photons
             )
         elif self.computation_space is ml.ComputationSpace.DUAL_RAIL:
             self.output_size = 2**image_size
@@ -609,7 +613,7 @@ class TimeEvolutionEncoder(nn.Module):
                 )
                 qlayer = ml.QuantumLayer(
                     circuit=total_circuit,
-                    n_photons=self.n_photons,
+                    n_photons=self.num_photons,
                     measurement_strategy=ml.MeasurementStrategy.AMPLITUDES,
                     computation_space=self.computation_space,
                 )
@@ -628,7 +632,7 @@ class TimeEvolutionEncoder(nn.Module):
                 )
                 qlayer = ml.QuantumLayer(
                     circuit=total_circuit,
-                    n_photons=self.n_photons,
+                    n_photons=self.num_photons,
                     measurement_strategy=ml.MeasurementStrategy.AMPLITUDES,
                     computation_space=self.computation_space,
                 )
@@ -656,11 +660,11 @@ class FourierEncoder(nn.Module):
         super().__init__()
         self.num_features = num_features
         self.n_photon_per_feature = n_photon_per_feature
+        self.num_photons = num_features * n_photon_per_feature
+        self.num_modes = self.num_photons * 2
+        self.computation_space = ml.ComputationSpace.DUAL_RAIL
         self.return_sv = return_sv
-        self.input_state = [
-            1 if i % 2 == 0 else 0
-            for i in range(num_features * n_photon_per_feature * 2)
-        ]
+        self.input_state = [1 if i % 2 == 0 else 0 for i in range(self.num_modes)]
         self.output_size = 2 ** (num_features * n_photon_per_feature)
 
         if change_output_size_even_square:

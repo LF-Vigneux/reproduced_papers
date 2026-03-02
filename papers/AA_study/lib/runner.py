@@ -14,6 +14,7 @@ from papers.AA_study.lib.amplitude_limitations import (  # noqa: E402
     reproduce_fig_4,
     reproduce_fig_5,
     reproduce_fig_7,
+    reproduce_fig_7_simple_model,
 )
 from papers.AA_study.lib.run_bas import run_bas  # noqa: E402
 from papers.AA_study.utils.utils import (  # noqa: E402
@@ -41,12 +42,13 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
     """
     exp_to_run = cfg.get("exp_to_run", "DEFAULT")
     generate_graph = not str_to_bool(cfg.get("dont_generate_graph", False))
+    reproduce_gate_based = not str_to_bool(cfg.get("dont_reproduce_gate_based", False))
     comp_space = str_to_computation_space(
         cfg.get("computation_space", ml.ComputationSpace.UNBUNCHED)
     )
     shuffle_amplitude = str_to_bool(cfg.get("shuffle_amplitude", False))
     sample_size_per_class_to_test = parse_sample_size_per_class_to_test(
-        cfg.get("bond_dimensions_to_test")
+        cfg.get("sample_size_per_class_to_test")
     )
 
     if exp_to_run == "DEFAULT":
@@ -115,11 +117,31 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
     elif exp_to_run == "FIG7":
         print("Running the FIG7 experiment")
         reproduce_fig_7(
+            reproduce_gate_based=reproduce_gate_based,
             dataset_to_run=cfg.get("dataset_to_run", "MNIST"),
             sample_size_per_class=sample_size_per_class_to_test or [1, 10, 100, 1000],
             batch_size=cfg.get("batch_size", 50),
             num_epochs=cfg.get("num_epochs", 20),
             lr=cfg.get("lr", 0.01),
+            noise=cfg.get("noise", 0),
+            encoding_name=cfg.get("encoding_name", "OneHot"),
+            num_photons=cfg.get("num_photons", None),
+            num_modes=cfg.get("num_modes", None),
+            num_features=cfg.get("num_features", None),
+            time=cfg.get("time", 0.01),
+            computation_space=comp_space,
+            shuffle_amplitude=shuffle_amplitude,
+            run_dir=run_dir,
+        )
+    elif exp_to_run == "SIMPLE_FIG7":
+        print("Running the simple FIG7 experiment")
+        reproduce_fig_7_simple_model(
+            dataset_to_run=cfg.get("dataset_to_run", "MNIST"),
+            sample_size_per_class=sample_size_per_class_to_test or [10, 100, 500, 1000],
+            batch_size=cfg.get("batch_size", 50),
+            num_epochs=cfg.get("num_epochs", 20),
+            lr=cfg.get("lr", 0.01),
+            noise=cfg.get("noise", 0),
             encoding_name=cfg.get("encoding_name", "OneHot"),
             num_photons=cfg.get("num_photons", None),
             num_modes=cfg.get("num_modes", None),
@@ -202,11 +224,30 @@ def main():
     elif args.exp_to_run == "FIG7":
         print("Running the FIG7 experiment")
         reproduce_fig_7(
+            reproduce_gate_based=not args.dont_reproduce_gate_based,
             dataset_to_run=args.batch_size,
             sample_size_per_class=args.sample_size_per_class_to_test,
             batch_size=args.batch_size,
             num_epochs=args.num_epochs,
             lr=args.lr,
+            noise=args.noise,
+            encoding_name=args.encoding_name,
+            num_photons=args.num_photons,
+            num_modes=args.num_modes,
+            num_features=args.num_features,
+            time=args.time,
+            computation_space=comp_space,
+            shuffle_amplitude=args.shuffle_amplitude,
+        )
+    elif args.exp_to_run == "SIMPLE_FIG7":
+        print("Running the simple FIG7 experiment")
+        reproduce_fig_7_simple_model(
+            dataset_to_run=args.batch_size,
+            sample_size_per_class=args.sample_size_per_class_to_test,
+            batch_size=args.batch_size,
+            num_epochs=args.num_epochs,
+            lr=args.lr,
+            noise=args.noise,
             encoding_name=args.encoding_name,
             num_photons=args.num_photons,
             num_modes=args.num_modes,

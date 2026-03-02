@@ -193,6 +193,45 @@ def amplitude_encoding_simple(
     return nn.Sequential(qlayer, ml.LexGrouping(qlayer.output_size, num_classes))
 
 
+class MerlinSimpleModel(nn.Module):
+    def __init__(
+        self,
+        num_layers: int = 1,
+        num_modes: int = 0,
+        num_features: int = 0,
+        encoding_name: str = "OneHot",
+        num_photons: int = 0,
+        time: float = 0.0,
+        computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
+        shuffle_amplitude: bool = False,
+    ):
+        super().__init__()
+        self.encoding = choose_encoding(
+            encoding_name=encoding_name,
+            return_sv=True,
+            change_output_size_even_square=False,
+            num_photons=num_photons,
+            num_modes=num_modes,
+            num_features=num_features,
+            time=time,
+            computation_space=computation_space,
+            shuffle_amplitude=shuffle_amplitude,
+        )
+        circuit = ml.CircuitBuilder(n_modes=self.encoding.num_modes)
+        for _ in range(num_layers):
+            circuit.add_entangling_layer()
+        self.qlayer = ml.QuantumLayer(
+            builder=circuit,
+            n_photons=self.encoding.num_photons,
+            amplitude_encoding=True,
+            computation_space=self.encoding.computation_space,
+        )
+        self.model = nn.Sequential(self.encoding, self.qlayer)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.model(x)
+
+
 class PhotonicQCNN(nn.Module):
     """
     Hybrid photonic quantum CNN model using MerLin framework.

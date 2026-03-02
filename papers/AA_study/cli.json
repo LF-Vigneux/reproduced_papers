@@ -3,7 +3,7 @@
   "arguments": [
     {
       "flags": ["--exp_to_run"],
-      "help": "Which experiment to run between 'BAS', 'FIG1', 'FIG2', 'FIG3', 'FIG4', 'FIG5' and 'FIG7'   (default: 'BAS')",
+      "help": "Which experiment to run between 'BAS', 'FIG1', 'FIG2', 'FIG3', 'FIG4', 'FIG5', 'FIG7' and 'SIMPLE_FIG7' (default: 'BAS')",
       "type": "str",
       "default": null,
       "apply": {"kind": "config_path", "path": "exp_to_run"}
@@ -44,11 +44,18 @@
       "apply": {"kind": "config_path", "path": "lr"}
     },
     {
+      "flags": ["noise"],
+      "help": "The noise to induce in the circles and moons datasets (default: 0.0)",
+      "type": "float",
+      "default": null,
+      "apply": {"kind": "config_path", "path": "noise"}
+    },
+    {
       "flags": ["--num_samples_per_class"],
       "help": "The number of samples to create per class from the synthetic datasets of the paper (default: 2000)",
       "type": "int",
       "default": null,
-      "apply": {"kind": "config_path", "path": "lr"}
+      "apply": {"kind": "config_path", "path": "num_samples_per_class"}
     },
     {
       "flags": ["--sample_size_per_class_to_test"],
@@ -106,6 +113,13 @@
       "default": null,
       "apply": {"kind": "config_path", "path": "shuffle_amplitude"}
     },  
+    {
+      "flags": ["--dont_reproduce_gate_based"],
+      "help": "Disable the experiment of the gate-based QCNN",
+      "type": "bool",
+      "default": null,
+      "apply": {"kind": "config_path", "path": "reproduce_gate_based"}
+    },
     {
       "flags": ["--dont_generate_graph"],
       "help": "Disable weight sharing experiment",
