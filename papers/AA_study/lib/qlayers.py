@@ -82,7 +82,7 @@ def angle_encoding_simple(
     if __num_modes is None:
         input_state = [0] * num_features
         for i in range(num_features // 2):
-            input_state[(i * 2) + 1] = 1
+            input_state[i] = 1
         circuit = ml.CircuitBuilder(n_modes=num_features)
         if num_features == 1:
             circuit.add_rotations(trainable=True)
@@ -94,18 +94,36 @@ def angle_encoding_simple(
                 circuit.add_rotations(trainable=True)
             else:
                 circuit.add_entangling_layer()
-        qlayer = ml.QuantumLayer(
-            input_size=num_features,  # Follow the convention?
-            builder=circuit,
-            input_state=input_state,
-            n_photons=num_features // 2,
-            measurement_strategy=measurement_strategy,
-        )
-        return nn.Sequential(qlayer, ml.LexGrouping(qlayer.output_size, num_classes))
+            if __reuploading:
+                circuit.add_angle_encoding()
+        if __reuploading:
+            qlayer = ml.QuantumLayer(
+                input_size=num_features * (num_layers + 1),  # Follow the convention?
+                builder=circuit,
+                input_state=input_state,
+                n_photons=num_features // 2,
+                measurement_strategy=measurement_strategy,
+            )
+            return ReuploadingModule(
+                nn.Sequential(qlayer, ml.LexGrouping(qlayer.output_size, num_classes)),
+                num_layers,
+                num_classes,
+            )
+        else:
+            qlayer = ml.QuantumLayer(
+                input_size=num_features,  # Follow the convention?
+                builder=circuit,
+                input_state=input_state,
+                n_photons=num_features // 2,
+                measurement_strategy=measurement_strategy,
+            )
+            return nn.Sequential(
+                qlayer, ml.LexGrouping(qlayer.output_size, num_classes)
+            )
     else:
         input_state = [0] * __num_modes
         for i in range(__num_photons):
-            input_state[(i * 2) + 1] = 1
+            input_state[i] = 1
         circuit = ml.CircuitBuilder(n_modes=__num_modes)
         if __num_modes == 1:
             circuit.add_rotations(trainable=True)
@@ -116,10 +134,9 @@ def angle_encoding_simple(
             if __reuploading:
                 if __num_modes == 1:
                     circuit.add_rotations(trainable=True)
-                    circuit.add_angle_encoding(modes=[i for i in range(num_features)])
                 else:
                     circuit.add_entangling_layer()
-                    circuit.add_angle_encoding(modes=[i for i in range(num_features)])
+                circuit.add_angle_encoding(modes=[i for i in range(num_features)])
             else:
                 if __num_modes == 1:
                     circuit.add_rotations(trainable=True)
@@ -204,6 +221,7 @@ class MerlinSimpleModel(nn.Module):
         time: float = 0.0,
         computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
         shuffle_amplitude: bool = False,
+        input_are_images=True,
     ):
         super().__init__()
         self.encoding = choose_encoding(
@@ -216,6 +234,7 @@ class MerlinSimpleModel(nn.Module):
             time=time,
             computation_space=computation_space,
             shuffle_amplitude=shuffle_amplitude,
+            input_are_images=input_are_images,
         )
         circuit = ml.CircuitBuilder(n_modes=self.encoding.num_modes)
         for _ in range(num_layers):

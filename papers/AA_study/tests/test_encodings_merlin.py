@@ -19,12 +19,14 @@ from papers.AA_study.lib.encodings_merlin import (  # noqa: E402
     unitary_evolution,
     amplitude_encoding,
     fourier_basis_v2,
+    fourier_basis_v3,
     AngleEncoder,
     AmplitudeEncoder,
     DenseAngleEncoder,
     DenseAmplitudeEncoder,
     TimeEvolutionEncoder,
     FourierEncoder,
+    FourierEncoderV2,
 )
 
 
@@ -303,3 +305,67 @@ def test_FourierEncoder():
     assert output_state.dtype == torch.complex128
     for i in output_state:
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
+
+
+def test_FourierEncoderV2():
+    encoder = FourierEncoderV2(
+        num_features=3,
+        n_photon_per_feature=3,
+        change_output_size_even_square=False,
+        return_sv=False,
+    )
+
+    features = torch.rand((10, 3))
+
+    output_state = encoder(features)
+
+    assert output_state.shape == (10, 2**9, 2**9)
+    assert output_state.dtype == torch.complex128
+    for i in output_state:
+        assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
+
+
+def test_FourierEncoderV2_deeper():
+    for _ in range(5):
+        encoder = FourierEncoderV2(
+            num_features=3,
+            n_photon_per_feature=3,
+            change_output_size_even_square=False,
+            return_sv=True,
+        )
+
+        features = torch.rand((1, 3))
+
+        output_state = encoder(features).flatten()
+        feature_states = []
+        for x in features.flatten():
+            feature_state = torch.zeros(8, dtype=torch.complex128)
+            for k in range(8):
+                feature_state[k] = torch.exp(1j * torch.pi * x * k * 0.25)
+            feature_states.append(feature_state)
+        expected_state = 2 ** (-(4.5)) * np.kron(
+            feature_states[0], np.kron(feature_states[1], feature_states[2])
+        )
+
+        ov = output_state.detach().cpu().numpy()
+        ev = np.asarray(expected_state)
+        fidelity = np.abs(np.vdot(ov, ev)) ** 2
+        assert np.allclose(fidelity, 1, rtol=1e-4)
+
+
+def test_param_circuit():
+    param_circuit = fourier_basis_v3(num_features=1, num_qubits_per_feature=1)
+
+    for x in [0.37, 1.2, 3]:
+        matrix_one_photon = (1 / (2 ** (0.5))) * np.array(
+            [
+                [1, 1],
+                [np.exp(1.0j * np.pi * x), (-1) * np.exp(1.0j * np.pi * x)],
+            ]
+        )
+
+        computed = param_circuit.compute_unitary(assign={"phi0": np.pi * x})
+        computed_phase = np.exp(-1.0j * np.angle(computed[0, 0]))
+        computed = computed * computed_phase
+
+        assert np.allclose(matrix_one_photon, computed, rtol=0.001)

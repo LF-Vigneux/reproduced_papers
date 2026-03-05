@@ -7,6 +7,7 @@ import sys
 import torch
 import torch.nn as nn
 import math
+import scipy as sp
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -18,6 +19,7 @@ from papers.AA_study.utils.qlayers_utils import (
     MZI,
     generate_fourrier_sub_matrix_v2,
     find_upper_even_square,
+    vector_to_matrix_evo,
 )
 
 
@@ -195,6 +197,26 @@ def fourier_basis_v2(features: list[float], num_qubits_per_feature: int):
     return main_circuit
 
 
+def fourier_basis_v3(num_features: int, num_qubits_per_feature: int) -> pcvl.Circuit:
+    main_circuit = pcvl.Circuit(m=num_features * num_qubits_per_feature * 2)
+
+    width = len(str((num_features) - 1))
+    params = [
+        pcvl.Parameter(f"phi{i:0{width}d}")
+        for i in range(num_features * num_qubits_per_feature)
+    ]
+    param_index = 0
+    mode_index = 0
+    for _ in range(num_features):
+        for _ in range(num_qubits_per_feature):
+            main_circuit.add(
+                [mode_index, mode_index + 1], pcvl.BS.H(phi_br=params[param_index])
+            )
+            param_index += 1
+            mode_index += 2
+    return main_circuit
+
+
 class OneHotEncoder(nn.Module):
     """
     One Hot Encoder
@@ -261,14 +283,13 @@ class AngleEncoder(nn.Module):
                     modes=[i for i in range(self.num_features - features_assigned)]
                 )
                 features_assigned += self.num_features - features_assigned
-            circuit.add_entangling_layer(trainable=True)
 
         self.qlayer = ml.QuantumLayer(
             builder=circuit,
             n_photons=num_photons,
             measurement_strategy=ml.MeasurementStrategy.AMPLITUDES,
             computation_space=computation_space,
-            dtype=torch.complex128,
+            dtype=torch.float64,
             amplitude_encoding=False,
         )
         if change_output_size_even_square:
@@ -286,7 +307,6 @@ class AngleEncoder(nn.Module):
         if x.dim() > 2:
             x = torch.reshape(x, (x.shape[0], np.prod(x.shape[1:])))
 
-        # Normalize for inputs
         amplitudes_output = self.encoder(x)
 
         if self.return_sv:
@@ -561,6 +581,7 @@ class TimeEvolutionEncoder(nn.Module):
         computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
         return_sv: bool = True,
         change_output_size_even_square: bool = False,
+        input_are_images: bool = True,
     ):
         """
         image_size is one size of the image
@@ -571,20 +592,36 @@ class TimeEvolutionEncoder(nn.Module):
         self.image_size = image_size
         self.computation_space = computation_space
         self.return_sv = return_sv
+        self.input_are_images = input_are_images
+        self.num_modes = (
+            2 * image_size if input_are_images else 2 * (image_size // 2 + 1)
+        )
 
-        base_circuit = ml.CircuitBuilder(n_modes=2 * image_size)
-        base_circuit.add_entangling_layer(trainable=False)
+        base_circuit = ml.CircuitBuilder(n_modes=self.num_modes)
+        base_circuit.add_entangling_layer(trainable=True)
         self.base_perceval = base_circuit.to_pcvl_circuit()
         self.num_modes = self.base_perceval.m
 
         if self.computation_space is ml.ComputationSpace.UNBUNCHED:
-            self.output_size = math.comb(self.image_size * 2, self.num_photons)
+            if input_are_images:
+                self.output_size = math.comb(self.image_size * 2, self.num_photons)
+            else:
+                self.output_size = math.comb(self.num_modes, self.num_photons)
         elif self.computation_space is ml.ComputationSpace.FOCK:
-            self.output_size = math.comb(
-                (self.image_size * 2) + self.num_photons - 1, self.num_photons
-            )
+            if input_are_images:
+                self.output_size = math.comb(
+                    self.num_modes + self.num_photons - 1, self.num_photons
+                )
+            else:
+                self.output_size = math.comb(
+                    self.num_modes + self.num_photons - 1,
+                    self.num_photons,
+                )
         elif self.computation_space is ml.ComputationSpace.DUAL_RAIL:
-            self.output_size = 2**image_size
+            if input_are_images:
+                self.output_size = 2**image_size
+            else:
+                self.output_size = 2 ** (self.image_size // 2 + 1)
         else:
             raise ValueError("Wrong computation space")
 
@@ -596,8 +633,18 @@ class TimeEvolutionEncoder(nn.Module):
             self.encoder = ml.LexGrouping(self.output_size, self.output_size)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if x.dim() == 2:
+        if x.dim() == 1:
             x = x.unsqueeze(0)
+        if x.dim() == 2:
+            if not self.input_are_images:
+                output_tensor = torch.empty(
+                    (x.shape[0], x.shape[1] // 2 + 1, x.shape[1] // 2 + 1)
+                )
+                for i, tensor in enumerate(x):
+                    output_tensor[i, :, :] = vector_to_matrix_evo(tensor)
+                x = output_tensor
+            else:
+                x = x.unsqueeze(0)
 
         if self.return_sv:
             output_tensors = torch.empty(
@@ -608,7 +655,7 @@ class TimeEvolutionEncoder(nn.Module):
             for i, tensor in enumerate(x):
                 total_circuit = self.base_perceval.copy()
                 total_circuit.add(
-                    list(range(2 * self.image_size)),
+                    list(range(self.num_modes)),
                     unitary_evolution(tensor, self.time),
                 )
                 qlayer = ml.QuantumLayer(
@@ -616,6 +663,7 @@ class TimeEvolutionEncoder(nn.Module):
                     n_photons=self.num_photons,
                     measurement_strategy=ml.MeasurementStrategy.AMPLITUDES,
                     computation_space=self.computation_space,
+                    trainable_parameters=["el_"],
                 )
                 output_tensors[i, :] = self.encoder(qlayer().flatten())
         else:
@@ -627,7 +675,7 @@ class TimeEvolutionEncoder(nn.Module):
             for i, tensor in enumerate(x):
                 total_circuit = self.base_perceval.copy()
                 total_circuit.add(
-                    list(range(2 * self.image_size)),
+                    list(range(self.num_modes)),
                     unitary_evolution(tensor, self.time),
                 )
                 qlayer = ml.QuantumLayer(
@@ -635,6 +683,7 @@ class TimeEvolutionEncoder(nn.Module):
                     n_photons=self.num_photons,
                     measurement_strategy=ml.MeasurementStrategy.AMPLITUDES,
                     computation_space=self.computation_space,
+                    trainable_parameters=["el_"],
                 )
                 state = self.encoder(qlayer().flatten())
 
@@ -724,6 +773,82 @@ class FourierEncoder(nn.Module):
         return "FourierEncoder()"
 
 
+class FourierEncoderV2(nn.Module):
+    def __init__(
+        self,
+        num_features: int,
+        n_photon_per_feature: int,
+        return_sv: bool = True,
+        change_output_size_even_square: bool = False,
+    ):
+        """
+        n_modes is one size of the image
+        """
+        super().__init__()
+        self.num_features = num_features
+        self.n_photon_per_feature = n_photon_per_feature
+        self.num_photons = num_features * n_photon_per_feature
+        self.num_modes = self.num_photons * 2
+
+        width = len(str((num_features) - 1))
+        self.qlayer = ml.QuantumLayer(
+            circuit=fourier_basis_v3(
+                num_features=num_features, num_qubits_per_feature=n_photon_per_feature
+            ),
+            n_photons=self.num_photons,
+            measurement_strategy=ml.MeasurementStrategy.AMPLITUDES,
+            computation_space=ml.ComputationSpace.DUAL_RAIL,
+            input_parameters=[f"phi{i:0{width}d}" for i in range(self.num_photons)],
+        )
+
+        self.computation_space = ml.ComputationSpace.DUAL_RAIL
+        self.return_sv = return_sv
+        self.output_size = 2**self.num_photons
+
+        if change_output_size_even_square:
+            corrected_output_size = find_upper_even_square(self.output_size)
+            self.encoder = nn.Sequential(
+                self.qlayer, ml.LexGrouping(self.output_size, corrected_output_size)
+            )
+            self.output_size = corrected_output_size
+        else:
+            self.encoder = self.qlayer
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+        if x.dim() > 2:
+            x = x.reshape(x.shape[0], np.prod(x.shape[1:]))
+
+        # Repeating the input tensor to acount the scaling
+        input_tensor = torch.empty((x.shape[0], x.shape[1] * self.n_photon_per_feature))
+        k = torch.arange(self.n_photon_per_feature)
+        scales = math.pi * 2.0 ** (-k)
+
+        for i, input in enumerate(x):
+            out = input[:, None] * scales
+            out = out.reshape(-1)
+            input_tensor[i, :] = out
+
+        amplitudes_output = self.encoder(input_tensor)
+        # amplitudes_output = self.encoder(x)
+
+        if self.return_sv:
+            return amplitudes_output.to(torch.complex128)
+        else:
+            output_tensors = torch.empty(
+                (x.shape[0], self.output_size, self.output_size),
+                dtype=torch.complex128,
+            )
+            for i, amplitude in enumerate(amplitudes_output):
+                output_tensors[i, :, :] = torch.outer(amplitude, amplitude.conj())
+
+            return output_tensors
+
+    def __repr__(self):
+        return "FourierEncoderV2()"
+
+
 def choose_encoding(
     encoding_name: str,
     return_sv: bool = True,
@@ -734,6 +859,7 @@ def choose_encoding(
     time: float = 0.01,
     computation_space: ml.ComputationSpace = ml.ComputationSpace.UNBUNCHED,
     shuffle_amplitude: bool = False,
+    input_are_images: bool = True,
 ) -> tuple[
     AngleEncoder
     | DenseAngleEncoder
@@ -788,9 +914,10 @@ def choose_encoding(
             computation_space=computation_space,
             return_sv=return_sv,
             change_output_size_even_square=change_output_size_even_square,
+            input_are_images=input_are_images,
         )
     elif encoding_name == "Fourier":
-        return FourierEncoder(
+        return FourierEncoderV2(
             num_features=num_features,
             n_photon_per_feature=num_photons,
             return_sv=return_sv,

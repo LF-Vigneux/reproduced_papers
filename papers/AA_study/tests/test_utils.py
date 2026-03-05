@@ -14,6 +14,7 @@ from papers.AA_study.utils.qlayers_utils import (
     generate_fourrier_sub_matrix,
     generate_fourrier_sub_matrix_v2,
     find_upper_even_square,
+    vector_to_matrix_evo,
 )  # noqa: E402
 from papers.AA_study.utils.utils import (  # noqa: E402
     find_mode_photon_config,
@@ -197,3 +198,59 @@ def test_find_upper_even_square():
     assert find_upper_even_square(36) == 36
     assert find_upper_even_square(37) == 64
     assert find_upper_even_square(43) == 64
+
+
+def test_vector_to_matrix_evo():
+    features = torch.rand(7, dtype=torch.float64)
+
+    matrix = vector_to_matrix_evo(features)
+    assert matrix[3, 0] == features[0]
+    assert matrix[2, 0] == matrix[3, 1] == features[1]
+    assert matrix[1, 0] == matrix[2, 1] == matrix[3, 2] == features[2]
+    assert matrix[0, 0] == matrix[1, 1] == matrix[2, 2] == matrix[3, 3] == features[3]
+    assert matrix[0, 1] == matrix[1, 2] == matrix[2, 3] == features[4]
+    assert matrix[0, 2] == matrix[1, 3] == features[5]
+    assert matrix[0, 3] == features[6]
+    assert matrix.shape == (4, 4)
+    assert matrix.dtype == torch.float64
+
+    features = torch.rand(4, dtype=torch.float64)
+
+    matrix = vector_to_matrix_evo(features, symetric=False)
+    assert matrix[3, 0] == 0
+    assert matrix[2, 0] == 0
+    assert matrix[1, 0] == 0
+    assert matrix[0, 0] == matrix[1, 1] == matrix[2, 2] == matrix[3, 3] == features[0]
+    assert matrix[0, 1] == matrix[1, 2] == matrix[2, 3] == features[1]
+    assert matrix[0, 2] == matrix[1, 3] == features[2]
+    assert matrix[0, 3] == features[3]
+    assert matrix.shape == (4, 4)
+    assert matrix.dtype == torch.float64
+
+    features = torch.rand(7, dtype=torch.float64)
+    matrix = vector_to_matrix_evo(features, matrix_size=10)
+
+    assert matrix.shape == (10, 10)
+    assert matrix.dtype == torch.float64
+
+    for i in range(10):
+        for j in range(10):
+            tag = j - i + 3
+            if tag >= 0 and tag < 7:
+                assert matrix[i, j] == features[tag]
+            else:
+                assert matrix[i, j] == 0
+
+    features = torch.rand(3, dtype=torch.float64)
+    matrix = vector_to_matrix_evo(features, matrix_size=10, symetric=False)
+
+    assert matrix.shape == (10, 10)
+    assert matrix.dtype == torch.float64
+
+    for i in range(10):
+        for j in range(10):
+            tag = j - i
+            if tag >= 0 and tag < 3:
+                assert matrix[i, j] == features[tag]
+            else:
+                assert matrix[i, j] == 0

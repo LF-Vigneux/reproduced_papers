@@ -44,7 +44,7 @@
       "apply": {"kind": "config_path", "path": "lr"}
     },
     {
-      "flags": ["noise"],
+      "flags": ["--noise"],
       "help": "The noise to induce in the circles and moons datasets (default: 0.0)",
       "type": "float",
       "default": null,

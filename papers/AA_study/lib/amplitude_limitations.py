@@ -289,7 +289,7 @@ def reproduce_fig_4(
                 num_features=2,
                 num_layers=L,
                 __num_modes=3,
-                __num_photons=1,
+                __num_photons=2,
                 __reuploading=True,
             )
 
@@ -713,6 +713,7 @@ def reproduce_fig_7_simple_model(
     merlin_accuracies = []
     merlin_losses = []
     merlin_gen_error = []
+    input_are_images = True
 
     if sample_size_per_class is None:
         sample_size_per_class = [10, 100, 500, 1000]
@@ -722,14 +723,17 @@ def reproduce_fig_7_simple_model(
             train_dataset, test_dataset = get_spiral_dataset(
                 num_samples_per_class=sampler_size, num_features=num_features
             )
+            input_are_images = False
         elif dataset_to_run == "MOONS":
             train_dataset, test_dataset = get_moons_dataset(
                 num_samples_per_class=sampler_size, noise=noise
             )
+            input_are_images = False
         elif dataset_to_run == "CIRCLES":
             train_dataset, test_dataset = get_circles_dataset(
                 num_samples_per_class=sampler_size, noise=noise
             )
+            input_are_images = False
         else:
             image_dim = np.sqrt(num_features)
             if not image_dim % 1 == 0:
@@ -755,6 +759,7 @@ def reproduce_fig_7_simple_model(
             time=time,
             computation_space=computation_space,
             shuffle_amplitude=shuffle_amplitude,
+            input_are_images=input_are_images,
         )
         _, accuracy, loss, gen_error = basic_model_training(
             merlin_model,
