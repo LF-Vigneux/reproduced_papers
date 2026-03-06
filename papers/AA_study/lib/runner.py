@@ -8,6 +8,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from papers.AA_study.lib.amplitude_limitations import (  # noqa: E402
+    analyze_datasets,
     reproduce_fig_1,
     reproduce_fig_2,
     reproduce_fig_3,
@@ -151,7 +152,14 @@ def train_and_evaluate(cfg, run_dir: Path) -> None:
             shuffle_amplitude=shuffle_amplitude,
             run_dir=run_dir,
         )
-
+    elif exp_to_run == "ANALYZE":
+        print("Running the ANALYZE experiment")
+        analyze_datasets(
+            num_max_samples=cfg.get("num_samples_per_class", 2000),
+            dataset_name=cfg.get("dataset_to_run", "SPIRAL"),
+            noise=cfg.get("noise", 0),
+            run_dir=run_dir,
+        )
     else:
         raise NameError("No experiment with that name")
 
@@ -242,7 +250,7 @@ def main():
     elif args.exp_to_run == "SIMPLE_FIG7":
         print("Running the simple FIG7 experiment")
         reproduce_fig_7_simple_model(
-            dataset_to_run=args.batch_size,
+            dataset_to_run=args.dataset_to_run,
             sample_size_per_class=args.sample_size_per_class_to_test,
             batch_size=args.batch_size,
             num_epochs=args.num_epochs,
@@ -255,6 +263,13 @@ def main():
             time=args.time,
             computation_space=comp_space,
             shuffle_amplitude=args.shuffle_amplitude,
+        )
+    elif args.exp_to_run == "ANALYZE":
+        print("Running the ANALYZE experiment")
+        analyze_datasets(
+            num_max_samples=args.num_samples_per_class,
+            dataset_name=args.dataset_to_run,
+            noise=args.noise,
         )
     else:
         raise NameError("No experiment with that name")
