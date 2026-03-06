@@ -18,15 +18,13 @@ from papers.AA_study.lib.encodings_merlin import (  # noqa: E402
     dense_encoding_of_features,
     unitary_evolution,
     amplitude_encoding,
-    fourier_basis_v2,
-    fourier_basis_v3,
+    fourier_basis,
     AngleEncoder,
     AmplitudeEncoder,
     DenseAngleEncoder,
     DenseAmplitudeEncoder,
     TimeEvolutionEncoder,
     FourierEncoder,
-    FourierEncoderV2,
 )
 
 
@@ -103,33 +101,22 @@ def test_unitary_evolution():
     assert np.allclose(torch.tensor(target), computed, rtol=0.01)
 
 
-# TODO: Change once I can really understand the qubit--> mode maping
-def test_fourier_basis_v2():
-    features = [0.3, 0.67]
-    target = np.zeros((8, 8), dtype=np.complex128)
-    target[0:2, 0:2] = generate_fourrier_sub_matrix_v2(
-        feature=features[0], photon_index=0
-    )
-    target[2:4, 2:4] = generate_fourrier_sub_matrix_v2(
-        feature=features[0], photon_index=1
-    )
-    target[4:6, 4:6] = generate_fourrier_sub_matrix_v2(
-        feature=features[1], photon_index=0
-    )
-    target[6:, 6:] = generate_fourrier_sub_matrix_v2(
-        feature=features[1], photon_index=1
-    )
+def test_param_circuit():
+    param_circuit = fourier_basis(num_features=1, num_qubits_per_feature=1)
 
-    output_circuit = fourier_basis_v2(features=features, num_qubits_per_feature=2)
-    computed = np.array(output_circuit.compute_unitary())
+    for x in [0.37, 1.2, 3]:
+        matrix_one_photon = (1 / (2 ** (0.5))) * np.array(
+            [
+                [1, 1],
+                [np.exp(1.0j * np.pi * x), (-1) * np.exp(1.0j * np.pi * x)],
+            ]
+        )
 
-    # Fix global phase so (0, 0) entry is real and positive.
-    target_phase = np.exp(-1.0j * np.angle(target[0, 0]))
-    computed_phase = np.exp(-1.0j * np.angle(computed[0, 0]))
-    target = target * target_phase
-    computed = computed * computed_phase
+        computed = param_circuit.compute_unitary(assign={"phi0": np.pi * x})
+        computed_phase = np.exp(-1.0j * np.angle(computed[0, 0]))
+        computed = computed * computed_phase
 
-    assert np.allclose(target, computed, rtol=0.01)
+        assert np.allclose(matrix_one_photon, computed, rtol=0.001)
 
 
 def test_AngleEncoder():
@@ -293,24 +280,6 @@ def test_FourierEncoder():
     encoder = FourierEncoder(
         num_features=3,
         n_photon_per_feature=3,
-        change_output_size_even_square=True,
-        return_sv=False,
-    )
-
-    features = torch.rand((10, 3))
-
-    output_state = encoder(features)
-
-    assert output_state.shape == (10, 576, 576)
-    assert output_state.dtype == torch.complex128
-    for i in output_state:
-        assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
-
-
-def test_FourierEncoderV2():
-    encoder = FourierEncoderV2(
-        num_features=3,
-        n_photon_per_feature=3,
         change_output_size_even_square=False,
         return_sv=False,
     )
@@ -325,9 +294,9 @@ def test_FourierEncoderV2():
         assert np.allclose(torch.trace(i).detach().numpy(), [1.0 + 0.0j], rtol=0.01)
 
 
-def test_FourierEncoderV2_deeper():
+def test_FourierEncoder_deeper():
     for _ in range(5):
-        encoder = FourierEncoderV2(
+        encoder = FourierEncoder(
             num_features=3,
             n_photon_per_feature=3,
             change_output_size_even_square=False,
@@ -351,21 +320,3 @@ def test_FourierEncoderV2_deeper():
         ev = np.asarray(expected_state)
         fidelity = np.abs(np.vdot(ov, ev)) ** 2
         assert np.allclose(fidelity, 1, rtol=1e-4)
-
-
-def test_param_circuit():
-    param_circuit = fourier_basis_v3(num_features=1, num_qubits_per_feature=1)
-
-    for x in [0.37, 1.2, 3]:
-        matrix_one_photon = (1 / (2 ** (0.5))) * np.array(
-            [
-                [1, 1],
-                [np.exp(1.0j * np.pi * x), (-1) * np.exp(1.0j * np.pi * x)],
-            ]
-        )
-
-        computed = param_circuit.compute_unitary(assign={"phi0": np.pi * x})
-        computed_phase = np.exp(-1.0j * np.angle(computed[0, 0]))
-        computed = computed * computed_phase
-
-        assert np.allclose(matrix_one_photon, computed, rtol=0.001)

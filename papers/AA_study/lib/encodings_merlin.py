@@ -7,7 +7,6 @@ import sys
 import torch
 import torch.nn as nn
 import math
-import scipy as sp
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -15,9 +14,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from papers.AA_study.utils.qlayers_utils import (
-    generate_fourrier_sub_matrix,
     MZI,
-    generate_fourrier_sub_matrix_v2,
     find_upper_even_square,
     vector_to_matrix_evo,
 )
@@ -26,9 +23,6 @@ from papers.AA_study.utils.qlayers_utils import (
 def dense_angle_encoding_circuit(
     num_features: int, param_prefix: str = "phi", num_modes: int | None = None
 ) -> pcvl.Circuit:
-    """
-    Needs to be Dual rail...
-    """
     width = len(str(num_features - 1))
     params = [
         pcvl.Parameter(f"{param_prefix}{i:0{width}d}") for i in range(num_features)
@@ -112,10 +106,6 @@ def unitary_evolution(
     features_matrix: torch.Tensor,
     time: float,
 ) -> pcvl.Circuit:
-    """
-    One mode per feature
-    """
-
     feature_size = np.shape(features_matrix)[0]
 
     unitary_to_apply = torch.zeros(
@@ -139,65 +129,7 @@ def unitary_evolution(
     )
 
 
-def fourier_basis(features: list[float], num_qubits_per_feature: int):
-
-    main_circuit = pcvl.Circuit(m=len(features) * num_qubits_per_feature * 2)
-    mode_index = 0
-    for feature in features:
-        unitary_to_apply = pcvl.Matrix(
-            generate_fourrier_sub_matrix(
-                feature=float(feature), num_photons=num_qubits_per_feature
-            )
-        )
-        main_circuit.add(
-            [i for i in range(mode_index, mode_index + num_qubits_per_feature * 2)],
-            pcvl.Circuit.decomposition(
-                unitary_to_apply,
-                MZI,
-                phase_shifter_fn=pcvl.PS,
-                shape=pcvl.InterferometerShape.TRIANGLE,
-                allow_error=True,
-            ),
-        )
-
-        mode_index += num_qubits_per_feature * 2
-
-    return main_circuit
-
-
-def fourier_basis_v2(features: list[float], num_qubits_per_feature: int):
-
-    main_circuit = pcvl.Circuit(m=len(features) * num_qubits_per_feature * 2)
-    mode_index = 0
-    for feature in features:
-        for qubit in range(num_qubits_per_feature):
-            unitary_to_apply = pcvl.Matrix(
-                generate_fourrier_sub_matrix_v2(
-                    feature=float(feature), photon_index=qubit
-                )
-            )
-            main_circuit.add(
-                [
-                    i
-                    for i in range(
-                        mode_index + (qubit * 2), mode_index + (qubit * 2) + 2
-                    )
-                ],
-                pcvl.Circuit.decomposition(
-                    unitary_to_apply,
-                    MZI,
-                    phase_shifter_fn=pcvl.PS,
-                    shape=pcvl.InterferometerShape.TRIANGLE,
-                    allow_error=True,
-                ),
-            )
-
-        mode_index += num_qubits_per_feature * 2
-
-    return main_circuit
-
-
-def fourier_basis_v3(num_features: int, num_qubits_per_feature: int) -> pcvl.Circuit:
+def fourier_basis(num_features: int, num_qubits_per_feature: int) -> pcvl.Circuit:
     main_circuit = pcvl.Circuit(m=num_features * num_qubits_per_feature * 2)
 
     width = len(str((num_features) - 1))
@@ -711,88 +643,10 @@ class FourierEncoder(nn.Module):
         self.n_photon_per_feature = n_photon_per_feature
         self.num_photons = num_features * n_photon_per_feature
         self.num_modes = self.num_photons * 2
-        self.computation_space = ml.ComputationSpace.DUAL_RAIL
-        self.return_sv = return_sv
-        self.input_state = [1 if i % 2 == 0 else 0 for i in range(self.num_modes)]
-        self.output_size = 2 ** (num_features * n_photon_per_feature)
-
-        if change_output_size_even_square:
-            corrected_output_size = find_upper_even_square(self.output_size)
-            self.encoder = ml.LexGrouping(self.output_size, corrected_output_size)
-            self.output_size = corrected_output_size
-        else:
-            self.encoder = ml.LexGrouping(self.output_size, self.output_size)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if x.dim() == 1:
-            x = x.unsqueeze(0)
-        if x.dim() > 2:
-            x = x.reshape(x.shape[0], np.prod(x.shape[1:]))
-
-        if self.return_sv:
-            output_tensors = torch.empty(
-                (x.shape[0], self.output_size),
-                dtype=torch.complex128,
-            )
-
-            for i, tensor in enumerate(x):
-                total_circuit = fourier_basis_v2(
-                    tensor, num_qubits_per_feature=self.n_photon_per_feature
-                )
-                qlayer = ml.QuantumLayer(
-                    circuit=total_circuit,
-                    input_state=self.input_state,
-                    measurement_strategy=ml.MeasurementStrategy.AMPLITUDES,
-                    computation_space=ml.ComputationSpace.DUAL_RAIL,
-                )
-
-                output_tensors[i, :] = self.encoder(qlayer().flatten())
-        else:
-            output_tensors = torch.empty(
-                (x.shape[0], self.output_size, self.output_size),
-                dtype=torch.complex128,
-            )
-
-            for i, tensor in enumerate(x):
-                total_circuit = fourier_basis_v2(
-                    tensor, num_qubits_per_feature=self.n_photon_per_feature
-                )
-                qlayer = ml.QuantumLayer(
-                    circuit=total_circuit,
-                    input_state=self.input_state,
-                    measurement_strategy=ml.MeasurementStrategy.AMPLITUDES,
-                    computation_space=ml.ComputationSpace.DUAL_RAIL,
-                )
-                state = self.encoder(qlayer().flatten())
-
-                output_tensors[i, :, :] = torch.outer(state, state.conj())
-
-        return output_tensors
-
-    def __repr__(self):
-        return "FourierEncoder()"
-
-
-class FourierEncoderV2(nn.Module):
-    def __init__(
-        self,
-        num_features: int,
-        n_photon_per_feature: int,
-        return_sv: bool = True,
-        change_output_size_even_square: bool = False,
-    ):
-        """
-        n_modes is one size of the image
-        """
-        super().__init__()
-        self.num_features = num_features
-        self.n_photon_per_feature = n_photon_per_feature
-        self.num_photons = num_features * n_photon_per_feature
-        self.num_modes = self.num_photons * 2
 
         width = len(str((num_features) - 1))
         self.qlayer = ml.QuantumLayer(
-            circuit=fourier_basis_v3(
+            circuit=fourier_basis(
                 num_features=num_features, num_qubits_per_feature=n_photon_per_feature
             ),
             n_photons=self.num_photons,
@@ -846,7 +700,7 @@ class FourierEncoderV2(nn.Module):
             return output_tensors
 
     def __repr__(self):
-        return "FourierEncoderV2()"
+        return "FourierEncoder()"
 
 
 def choose_encoding(
@@ -917,7 +771,7 @@ def choose_encoding(
             input_are_images=input_are_images,
         )
     elif encoding_name == "Fourier":
-        return FourierEncoderV2(
+        return FourierEncoder(
             num_features=num_features,
             n_photon_per_feature=num_photons,
             return_sv=return_sv,

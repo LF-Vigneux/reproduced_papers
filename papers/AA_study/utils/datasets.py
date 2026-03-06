@@ -5,10 +5,11 @@ import numpy as np
 import pennylane as qml
 import torch
 from medmnist import INFO
+from pathlib import Path
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from torchvision import datasets
 from torchvision.transforms import Compose, Resize, ToTensor
-from pathlib import Path
+
 import sys
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -198,186 +199,6 @@ def get_bas():
     except Exception as exc:
         print(f"Error loading PennyLane BAS dataset: {exc}")
         raise
-
-
-def get_data_loader(
-    dataset: TensorDataset, batch_size: int = None, shuffle: bool = True
-) -> DataLoader:
-    """
-    Wrap a TensorDataset in a DataLoader with optional batch size.
-
-    Parameters
-    ----------
-    dataset : torch.utils.data.TensorDataset
-        Dataset to wrap.
-    batch_size : int | None, optional
-        Batch size. If None, the DataLoader will use the default batch size.
-    shuffle : bool, optional
-        Whether to shuffle the dataset each epoch.
-
-    Returns
-    -------
-    torch.utils.data.DataLoader
-        Configured DataLoader.
-    """
-    if batch_size is None:
-        return DataLoader(dataset, shuffle=shuffle)
-    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
-
-
-def _to_int_label(y):
-    """
-    Convert a dataset label to a Python int.
-
-    Parameters
-    ----------
-    y : Any
-        Label value from a dataset.
-
-    Returns
-    -------
-    int
-        Integer label.
-    """
-    if torch.is_tensor(y):
-        y = y.reshape(-1)[0].item()
-    try:
-        y = y.item()
-    except Exception:
-        pass
-    return int(y)
-
-
-class BinaryBalancedSubset(Dataset):
-    """
-    Keep exactly n_per_class samples for two labels,
-    remap them to {0,1}, and optionally shuffle order.
-    """
-
-    def __init__(self, base_dataset, keep_labels, n_per_class, seed=0, shuffle=True):
-        """
-        Build a balanced subset with exactly two classes.
-
-        Parameters
-        ----------
-        base_dataset : torch.utils.data.Dataset
-            Source dataset.
-        keep_labels : list
-            Two labels to keep.
-        n_per_class : int
-            Number of samples per class.
-        seed : int, optional
-            RNG seed for shuffling.
-        shuffle : bool, optional
-            Whether to shuffle the selected indices.
-        """
-        assert len(keep_labels) == 2, "keep_labels must have exactly 2 labels"
-
-        self.ds = base_dataset
-        self.keep = list(keep_labels)
-        self.map = {self.keep[0]: 0, self.keep[1]: 1}
-
-        per = {self.keep[0]: [], self.keep[1]: []}
-
-        # collect indices per class
-        for i in range(len(self.ds)):
-            _, y = self.ds[i]
-            y = _to_int_label(y)
-            if y in per:
-                per[y].append(i)
-
-        a, b = self.keep
-        if len(per[a]) < n_per_class or len(per[b]) < n_per_class:
-            raise ValueError(
-                f"Not enough samples for requested n_per_class={n_per_class}. "
-                f"Available: {a}->{len(per[a])}, {b}->{len(per[b])}."
-            )
-
-        rng = random.Random(seed)
-        rng.shuffle(per[a])
-        rng.shuffle(per[b])
-
-        # pick exactly n_per_class from each
-        chosen_a = per[a][:n_per_class]
-        chosen_b = per[b][:n_per_class]
-
-        # ordering depends on shuffle flag
-        if shuffle:
-            chosen = chosen_a + chosen_b
-            rng.shuffle(chosen)
-        else:
-            # first all class0, then all class1
-            chosen = chosen_a + chosen_b
-
-        self.indices = chosen
-
-    def __len__(self):
-        """
-        Return the number of selected samples.
-
-        Returns
-        -------
-        int
-            Dataset length.
-        """
-        return len(self.indices)
-
-    def __getitem__(self, idx):
-        """
-        Return (image, remapped_label) at the given index.
-
-        Parameters
-        ----------
-        idx : int
-            Sample index.
-
-        Returns
-        -------
-        tuple
-            Image tensor and remapped label.
-        """
-        x, y = self.ds[self.indices[idx]]
-        y = _to_int_label(y)
-        return x, self.map[y]
-
-
-def dataset_to_tensordataset(dataset):
-    """
-    Convert an arbitrary Dataset into a TensorDataset.
-
-    Parameters
-    ----------
-    dataset : torch.utils.data.Dataset
-        Dataset to convert.
-
-    Returns
-    -------
-    torch.utils.data.TensorDataset
-        TensorDataset with stacked tensors.
-    """
-    X_list, Y_list = [], []
-    for x, y in dataset:
-        X_list.append(x)
-        print(torch.max(x))
-        Y_list.append(int(y))
-
-    X = torch.stack(X_list)
-    Y = torch.tensor(Y_list).long()
-    return TensorDataset(X, Y)
-
-
-def _merge_rgb_batch_to_2d(tensor_ds: TensorDataset) -> TensorDataset:
-    """
-    Merge RGB channels into a single 2D square image per sample.
-
-    Input shape must be (N, 3, H, W). Output shape is (N, H, W).
-    """
-    x, y = tensor_ds.tensors
-    if x.ndim == 4 and x.shape[1] == 3:
-        # Standard luminance conversion keeps the image square.
-        weights = x.new_tensor([0.2989, 0.5870, 0.1140]).view(1, 3, 1, 1)
-        x = (x * weights).sum(dim=1)
-    return TensorDataset(x, y)
 
 
 def get_binary_dataset(
@@ -599,3 +420,184 @@ def get_circles_dataset(
         .values.detach()
         .numpy(),
     )
+
+
+# Functions that convert datasets to tensor datasets or Dataloaders
+def get_data_loader(
+    dataset: TensorDataset, batch_size: int = None, shuffle: bool = True
+) -> DataLoader:
+    """
+    Wrap a TensorDataset in a DataLoader with optional batch size.
+
+    Parameters
+    ----------
+    dataset : torch.utils.data.TensorDataset
+        Dataset to wrap.
+    batch_size : int | None, optional
+        Batch size. If None, the DataLoader will use the default batch size.
+    shuffle : bool, optional
+        Whether to shuffle the dataset each epoch.
+
+    Returns
+    -------
+    torch.utils.data.DataLoader
+        Configured DataLoader.
+    """
+    if batch_size is None:
+        return DataLoader(dataset, shuffle=shuffle)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+
+
+def _to_int_label(y):
+    """
+    Convert a dataset label to a Python int.
+
+    Parameters
+    ----------
+    y : Any
+        Label value from a dataset.
+
+    Returns
+    -------
+    int
+        Integer label.
+    """
+    if torch.is_tensor(y):
+        y = y.reshape(-1)[0].item()
+    try:
+        y = y.item()
+    except Exception:
+        pass
+    return int(y)
+
+
+def dataset_to_tensordataset(dataset):
+    """
+    Convert an arbitrary Dataset into a TensorDataset.
+
+    Parameters
+    ----------
+    dataset : torch.utils.data.Dataset
+        Dataset to convert.
+
+    Returns
+    -------
+    torch.utils.data.TensorDataset
+        TensorDataset with stacked tensors.
+    """
+    X_list, Y_list = [], []
+    for x, y in dataset:
+        X_list.append(x)
+        print(torch.max(x))
+        Y_list.append(int(y))
+
+    X = torch.stack(X_list)
+    Y = torch.tensor(Y_list).long()
+    return TensorDataset(X, Y)
+
+
+def _merge_rgb_batch_to_2d(tensor_ds: TensorDataset) -> TensorDataset:
+    """
+    Merge RGB channels into a single 2D square image per sample.
+
+    Input shape must be (N, 3, H, W). Output shape is (N, H, W).
+    """
+    x, y = tensor_ds.tensors
+    if x.ndim == 4 and x.shape[1] == 3:
+        # Standard luminance conversion keeps the image square.
+        weights = x.new_tensor([0.2989, 0.5870, 0.1140]).view(1, 3, 1, 1)
+        x = (x * weights).sum(dim=1)
+    return TensorDataset(x, y)
+
+
+class BinaryBalancedSubset(Dataset):
+    """
+    Keep exactly n_per_class samples for two labels,
+    remap them to {0,1}, and optionally shuffle order.
+    """
+
+    def __init__(self, base_dataset, keep_labels, n_per_class, seed=0, shuffle=True):
+        """
+        Build a balanced subset with exactly two classes.
+
+        Parameters
+        ----------
+        base_dataset : torch.utils.data.Dataset
+            Source dataset.
+        keep_labels : list
+            Two labels to keep.
+        n_per_class : int
+            Number of samples per class.
+        seed : int, optional
+            RNG seed for shuffling.
+        shuffle : bool, optional
+            Whether to shuffle the selected indices.
+        """
+        assert len(keep_labels) == 2, "keep_labels must have exactly 2 labels"
+
+        self.ds = base_dataset
+        self.keep = list(keep_labels)
+        self.map = {self.keep[0]: 0, self.keep[1]: 1}
+
+        per = {self.keep[0]: [], self.keep[1]: []}
+
+        # collect indices per class
+        for i in range(len(self.ds)):
+            _, y = self.ds[i]
+            y = _to_int_label(y)
+            if y in per:
+                per[y].append(i)
+
+        a, b = self.keep
+        if len(per[a]) < n_per_class or len(per[b]) < n_per_class:
+            raise ValueError(
+                f"Not enough samples for requested n_per_class={n_per_class}. "
+                f"Available: {a}->{len(per[a])}, {b}->{len(per[b])}."
+            )
+
+        rng = random.Random(seed)
+        rng.shuffle(per[a])
+        rng.shuffle(per[b])
+
+        # pick exactly n_per_class from each
+        chosen_a = per[a][:n_per_class]
+        chosen_b = per[b][:n_per_class]
+
+        # ordering depends on shuffle flag
+        if shuffle:
+            chosen = chosen_a + chosen_b
+            rng.shuffle(chosen)
+        else:
+            # first all class0, then all class1
+            chosen = chosen_a + chosen_b
+
+        self.indices = chosen
+
+    def __len__(self):
+        """
+        Return the number of selected samples.
+
+        Returns
+        -------
+        int
+            Dataset length.
+        """
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        """
+        Return (image, remapped_label) at the given index.
+
+        Parameters
+        ----------
+        idx : int
+            Sample index.
+
+        Returns
+        -------
+        tuple
+            Image tensor and remapped label.
+        """
+        x, y = self.ds[self.indices[idx]]
+        y = _to_int_label(y)
+        return x, self.map[y]

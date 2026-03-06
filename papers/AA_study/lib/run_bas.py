@@ -56,8 +56,6 @@ def run_bas(
     -------
     None
     """
-    import numpy as np
-
     train_dataset, test_dataset = get_bas()
     train_loader = get_data_loader(train_dataset, batch_size=batch_size)
     test_loader = get_data_loader(test_dataset, batch_size=200)

@@ -798,6 +798,127 @@ def reproduce_fig_7_simple_model(
     )
 
 
+def analyze_datasets(
+    num_max_samples: int = 2000,
+    dataset_name: str = "SPIRAL",
+    noise: float = 0.0,
+    run_dir: Path = None,
+):
+    """
+    Reproduce Fig. 2 by computing trace distance of the amplitude encoding of dataset 2
+    to the mixed state.
+
+    Parameters
+    ----------
+    num_max_samples : int, optional
+        Maximum number of samples per class to evaluate.
+    run_dir : pathlib.Path, optional
+        Output directory for the plot.
+
+    Returns
+    -------
+    list[list[float]]
+        Trace-distance curves for class 1 and class 2.
+    """
+    SUP_STATE = superposition_state(1)
+    distance_from_sup_state = [[], []]
+    MIXED_STATE = mixed_state(1)
+    distance_from_mixed_state = [[], []]
+    distance_between_classes = []
+    for sample_per_class in range(1, num_max_samples + 1):
+        if dataset_name == "SPIRAL":
+            dataset, _ = get_spiral_dataset(
+                num_samples_per_class=sample_per_class, num_features=2
+            )
+        elif dataset_name == "MOONS":
+            dataset, _ = get_moons_dataset(
+                num_samples_per_class=sample_per_class, noise=noise
+            )
+        elif dataset_name == "CIRCLES":
+            dataset, _ = get_circles_dataset(
+                num_samples_per_class=sample_per_class, noise=noise
+            )
+        else:
+            raise ValueError("Wrong name")
+
+        # Keep only features and enforce class-ordered layout:
+        # [all class 0 samples, then all class 1 samples]
+        features_tensor = dataset.tensors[0]
+        labels_tensor = dataset.tensors[1]
+        class_0_features = features_tensor[labels_tensor == 0][:sample_per_class]
+        class_1_features = features_tensor[labels_tensor == 1][:sample_per_class]
+        ordered_features = np.concatenate(
+            [
+                class_0_features.detach().cpu().numpy(),
+                class_1_features.detach().cpu().numpy(),
+            ],
+            axis=0,
+        )
+
+        # Class 1
+        class_1_features = ordered_features[:sample_per_class]
+        normalized_class_1_features = [
+            features / np.linalg.norm(features) for features in class_1_features
+        ]
+        class_1_density_matrices = [
+            state_vector_to_density_matrix(x) for x in normalized_class_1_features
+        ]
+        class_1_expected_state = np.mean(class_1_density_matrices, axis=0)
+
+        # Class 2
+        class_2_features = ordered_features[sample_per_class:]
+        normalized_class_2_features = [
+            features / np.linalg.norm(features) for features in class_2_features
+        ]
+        class_2_density_matrices = [
+            state_vector_to_density_matrix(x) for x in normalized_class_2_features
+        ]
+        class_2_expected_state = np.mean(class_2_density_matrices, axis=0)
+
+        # Distances
+        distance_from_sup_state[0].append(
+            trace_distance(class_1_expected_state, SUP_STATE)
+        )
+        distance_from_mixed_state[0].append(
+            trace_distance(class_1_expected_state, MIXED_STATE)
+        )
+
+        distance_from_sup_state[1].append(
+            trace_distance(class_2_expected_state, SUP_STATE)
+        )
+        distance_from_mixed_state[1].append(
+            trace_distance(class_2_expected_state, MIXED_STATE)
+        )
+        distance_between_classes.append(
+            trace_distance(
+                class_1_expected_state,
+                class_2_expected_state,
+            )
+        )
+    plot_amplitude_encoding_limitations(
+        distances=distance_from_sup_state,
+        dataset_unshuffled=dataset,
+        num_samples_per_class=num_max_samples,
+        fig_simulated=1,
+        run_dir=run_dir,
+    )
+    plot_amplitude_encoding_limitations(
+        distances=distance_from_mixed_state,
+        dataset_unshuffled=dataset,
+        num_samples_per_class=num_max_samples,
+        fig_simulated=2,
+        run_dir=run_dir,
+    )
+    plot_amplitude_encoding_limitations(
+        distances=distance_between_classes,
+        dataset_unshuffled=dataset,
+        num_samples_per_class=num_max_samples,
+        fig_simulated=3,
+        run_dir=run_dir,
+    )
+    return distance_from_sup_state, distance_from_mixed_state, distance_between_classes
+
+
 # reproduce_fig_1()
 # reproduce_fig_2()
 # reproduce_fig_3()
