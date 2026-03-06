@@ -17,10 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from papers.shared.HQNN_MythOrReality.data import (
-    load_spiral_dataset,
-    SpiralDatasetConfig,
-)
+from merlin.datasets import spiral
 from papers.AA_study.utils.utils import normalize_features
 from sklearn.datasets import make_moons, make_circles
 
@@ -337,89 +334,140 @@ def get_binary_dataset(
 
 
 def get_spiral_dataset(
-    num_samples_per_class: int, num_features: int
+    num_samples_per_class: int, num_features: int, test_value: bool = True
 ) -> tuple[TensorDataset, TensorDataset]:
-    dataset_config = SpiralDatasetConfig(
-        num_instances=num_samples_per_class,
+    tensors = spiral.get_data(
+        num_instances=num_samples_per_class * 2,
         num_features=num_features,
         num_classes=2,
-        test_size=0.2,
     )
-    x_train_tensor, x_test_tensor, y_train_tensor, y_test_tensor, _, _ = (
-        load_spiral_dataset(dataset_config)
-    )
+    X = tensors[0]
+    Y = tensors[1]
+    if test_value:
+        num_training = int(Y.size * 0.8)
 
-    return normalize_features(
-        TensorDataset(x_train_tensor, y_train_tensor),
-        min_per_feature=torch.min(x_train_tensor, 0).values.detach().numpy(),
-        max_per_feature=torch.max(x_train_tensor, 0).values.detach().numpy(),
-    ), normalize_features(
-        TensorDataset(x_test_tensor, y_test_tensor),
-        min_per_feature=torch.min(x_train_tensor, 0).values.detach().numpy(),
-        max_per_feature=torch.max(x_train_tensor, 0).values.detach().numpy(),
-    )
+        X_tensor = torch.Tensor(X)
+        Y_tensor = torch.Tensor(Y)
+
+        return normalize_features(
+            TensorDataset(X_tensor[:num_training, :], Y_tensor[:num_training]),
+            min_per_feature=torch.min(X_tensor[:num_training, :], 0)
+            .values.detach()
+            .numpy(),
+            max_per_feature=torch.max(X_tensor[:num_training, :], 0)
+            .values.detach()
+            .numpy(),
+        ), normalize_features(
+            TensorDataset(X_tensor[num_training:, :], Y_tensor[num_training:]),
+            min_per_feature=torch.min(X_tensor[num_training:, :], 0)
+            .values.detach()
+            .numpy(),
+            max_per_feature=torch.max(X_tensor[num_training:, :], 0)
+            .values.detach()
+            .numpy(),
+        )
+    else:
+        X_tensor = torch.Tensor(X)
+        Y_tensor = torch.Tensor(Y)
+
+        return normalize_features(
+            TensorDataset(X_tensor, Y_tensor),
+            min_per_feature=torch.min(X_tensor, 0).values.detach().numpy(),
+            max_per_feature=torch.max(X_tensor, 0).values.detach().numpy(),
+        )
 
 
 def get_moons_dataset(
-    num_samples_per_class: int, noise: float = 0
+    num_samples_per_class: int, noise: float = 0, test_value: bool = True
 ) -> tuple[TensorDataset, TensorDataset]:
     X, Y = make_moons(
-        [num_samples_per_class, num_samples_per_class],
+        n_samples=tuple([num_samples_per_class, num_samples_per_class]),
         noise=noise,
     )
-    num_training = int(Y.size * 0.8)
+    if test_value:
+        num_training = int(Y.size * 0.8)
 
-    X_tensor = torch.Tensor(X)
-    Y_tensor = torch.Tensor(Y)
+        X_tensor = torch.Tensor(X)
+        Y_tensor = torch.Tensor(Y)
 
-    return normalize_features(
-        TensorDataset(X_tensor[:num_training, :], Y_tensor[:num_training]),
-        min_per_feature=torch.min(X_tensor[:num_training, :], 0)
-        .values.detach()
-        .numpy(),
-        max_per_feature=torch.max(X_tensor[:num_training, :], 0)
-        .values.detach()
-        .numpy(),
-    ), normalize_features(
-        TensorDataset(X_tensor[num_training:, :], Y_tensor[num_training:]),
-        min_per_feature=torch.min(X_tensor[num_training:, :], 0)
-        .values.detach()
-        .numpy(),
-        max_per_feature=torch.max(X_tensor[num_training:, :], 0)
-        .values.detach()
-        .numpy(),
-    )
+        return normalize_features(
+            TensorDataset(X_tensor[:num_training, :], Y_tensor[:num_training]),
+            min_per_feature=torch.min(X_tensor[:num_training, :], 0)
+            .values.detach()
+            .numpy(),
+            max_per_feature=torch.max(X_tensor[:num_training, :], 0)
+            .values.detach()
+            .numpy(),
+        ), normalize_features(
+            TensorDataset(X_tensor[num_training:, :], Y_tensor[num_training:]),
+            min_per_feature=torch.min(X_tensor[num_training:, :], 0)
+            .values.detach()
+            .numpy(),
+            max_per_feature=torch.max(X_tensor[num_training:, :], 0)
+            .values.detach()
+            .numpy(),
+        )
+    else:
+        X_tensor = torch.Tensor(X)
+        Y_tensor = torch.Tensor(Y)
+
+        return normalize_features(
+            TensorDataset(X_tensor, Y_tensor),
+            min_per_feature=torch.min(X_tensor, 0).values.detach().numpy(),
+            max_per_feature=torch.max(X_tensor, 0).values.detach().numpy(),
+        )
 
 
 def get_circles_dataset(
-    num_samples_per_class: int, noise: float = 0
+    num_samples_per_class: int,
+    noise: float = 0,
+    test_value: bool = True,
+    normalize=True,
 ) -> tuple[TensorDataset, TensorDataset]:
     X, Y = make_circles(
-        [num_samples_per_class, num_samples_per_class],
+        n_samples=tuple([num_samples_per_class, num_samples_per_class]),
         noise=noise,
     )
-    num_training = int(Y.size * 0.8)
+    if test_value:
+        num_training = int(Y.size * 0.8)
 
-    X_tensor = torch.Tensor(X)
-    Y_tensor = torch.Tensor(Y)
+        X_tensor = torch.Tensor(X)
+        Y_tensor = torch.Tensor(Y)
 
-    return normalize_features(
-        TensorDataset(X_tensor[:num_training, :], Y_tensor[:num_training]),
-        min_per_feature=torch.min(X_tensor[:num_training, :], 0)
-        .values.detach()
-        .numpy(),
-        max_per_feature=torch.max(X_tensor[:num_training, :], 0)
-        .values.detach()
-        .numpy(),
-    ), normalize_features(
-        TensorDataset(X_tensor[num_training:, :], Y_tensor[num_training:]),
-        min_per_feature=torch.min(X_tensor[num_training:, :], 0)
-        .values.detach()
-        .numpy(),
-        max_per_feature=torch.max(X_tensor[num_training:, :], 0)
-        .values.detach()
-        .numpy(),
-    )
+        if normalize:
+            return normalize_features(
+                TensorDataset(X_tensor[:num_training, :], Y_tensor[:num_training]),
+                min_per_feature=torch.min(X_tensor[:num_training, :], 0)
+                .values.detach()
+                .numpy(),
+                max_per_feature=torch.max(X_tensor[:num_training, :], 0)
+                .values.detach()
+                .numpy(),
+            ), normalize_features(
+                TensorDataset(X_tensor[num_training:, :], Y_tensor[num_training:]),
+                min_per_feature=torch.min(X_tensor[num_training:, :], 0)
+                .values.detach()
+                .numpy(),
+                max_per_feature=torch.max(X_tensor[num_training:, :], 0)
+                .values.detach()
+                .numpy(),
+            )
+        else:
+            return TensorDataset(
+                X_tensor[:num_training, :], Y_tensor[:num_training]
+            ), TensorDataset(X_tensor[num_training:, :], Y_tensor[num_training:])
+    else:
+        X_tensor = torch.Tensor(X)
+        Y_tensor = torch.Tensor(Y)
+
+        if normalize:
+            return normalize_features(
+                TensorDataset(X_tensor, Y_tensor),
+                min_per_feature=torch.min(X_tensor, 0).values.detach().numpy(),
+                max_per_feature=torch.max(X_tensor, 0).values.detach().numpy(),
+            )
+        else:
+            return TensorDataset(X_tensor, Y_tensor)
 
 
 # Functions that convert datasets to tensor datasets or Dataloaders

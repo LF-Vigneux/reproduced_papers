@@ -2,7 +2,7 @@
     "description": "Run the ANALYZE experiment",
     "outdir": "results",
     "exp_to_run": "ANALYZE",
-    "dataset_to_run":"SPIRAL",
+    "dataset_to_run":"CIRCLES",
     "noise":0.0,
     "num_samples_per_class":2000
 }

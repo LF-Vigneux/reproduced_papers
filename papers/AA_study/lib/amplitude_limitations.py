@@ -99,7 +99,7 @@ def reproduce_fig_1(
         )
     plot_amplitude_encoding_limitations(
         distances=distance_from_sup_state,
-        dataset_unshuffled=dataset,
+        dataset_unshuffled=dataset.tensors[0],
         num_samples_per_class=num_max_samples,
         fig_simulated=1,
         run_dir=run_dir,
@@ -158,7 +158,7 @@ def reproduce_fig_2(
         )
     plot_amplitude_encoding_limitations(
         distances=distance_from_mixed_state,
-        dataset_unshuffled=dataset,
+        dataset_unshuffled=dataset.tensors[0],
         num_samples_per_class=num_max_samples,
         fig_simulated=2,
         run_dir=run_dir,
@@ -215,7 +215,7 @@ def reproduce_fig_3(
         )
     plot_amplitude_encoding_limitations(
         distances=distance_between_classes,
-        dataset_unshuffled=dataset,
+        dataset_unshuffled=dataset.tensors[0],
         num_samples_per_class=num_max_samples,
         fig_simulated=3,
         run_dir=run_dir,
@@ -825,18 +825,21 @@ def analyze_datasets(
     MIXED_STATE = mixed_state(1)
     distance_from_mixed_state = [[], []]
     distance_between_classes = []
-    for sample_per_class in range(1, num_max_samples + 1):
+    for sample_per_class in range(5, num_max_samples + 5):
         if dataset_name == "SPIRAL":
-            dataset, _ = get_spiral_dataset(
-                num_samples_per_class=sample_per_class, num_features=2
+            dataset = get_spiral_dataset(
+                num_samples_per_class=sample_per_class, num_features=2, test_value=False
             )
         elif dataset_name == "MOONS":
-            dataset, _ = get_moons_dataset(
-                num_samples_per_class=sample_per_class, noise=noise
+            dataset = get_moons_dataset(
+                num_samples_per_class=sample_per_class, noise=noise, test_value=False
             )
         elif dataset_name == "CIRCLES":
-            dataset, _ = get_circles_dataset(
-                num_samples_per_class=sample_per_class, noise=noise
+            dataset = get_circles_dataset(
+                num_samples_per_class=sample_per_class,
+                noise=noise,
+                test_value=False,
+                normalize=True,
             )
         else:
             raise ValueError("Wrong name")
@@ -895,23 +898,24 @@ def analyze_datasets(
                 class_2_expected_state,
             )
         )
+        print(f"Sample {sample_per_class} / {num_max_samples} done")
     plot_amplitude_encoding_limitations(
         distances=distance_from_sup_state,
-        dataset_unshuffled=dataset,
+        dataset_unshuffled=ordered_features,
         num_samples_per_class=num_max_samples,
         fig_simulated=1,
         run_dir=run_dir,
     )
     plot_amplitude_encoding_limitations(
         distances=distance_from_mixed_state,
-        dataset_unshuffled=dataset,
+        dataset_unshuffled=ordered_features,
         num_samples_per_class=num_max_samples,
         fig_simulated=2,
         run_dir=run_dir,
     )
     plot_amplitude_encoding_limitations(
         distances=distance_between_classes,
-        dataset_unshuffled=dataset,
+        dataset_unshuffled=ordered_features,
         num_samples_per_class=num_max_samples,
         fig_simulated=3,
         run_dir=run_dir,

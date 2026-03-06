@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
-from torch.utils.data import TensorDataset
+import torch
 
 
 def plot_bas_run(
@@ -72,7 +72,7 @@ def plot_bas_run(
 
 def plot_amplitude_encoding_limitations(
     distances: list[float] | list[list[float]],
-    dataset_unshuffled: TensorDataset,
+    dataset_unshuffled: torch.Tensor,
     num_samples_per_class: int = 2000,
     fig_simulated: int = 1,
     run_dir: Optional[Path] = None,
@@ -99,8 +99,8 @@ def plot_amplitude_encoding_limitations(
     tuple[numpy.ndarray, numpy.ndarray]
         Arrays corresponding to the class-1 and class-2 sample coordinates.
     """
-    class1 = dataset_unshuffled.tensors[0][:num_samples_per_class]
-    class2 = dataset_unshuffled.tensors[0][num_samples_per_class:]
+    class1 = dataset_unshuffled[:num_samples_per_class]
+    class2 = dataset_unshuffled[num_samples_per_class:]
 
     fig, (ax_scatter, ax_trace) = plt.subplots(1, 2, figsize=(10, 3.6))
 
