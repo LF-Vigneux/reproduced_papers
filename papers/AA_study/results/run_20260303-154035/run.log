@@ -1,3 +1,0 @@
-2026-03-03 15:40:35 | INFO | runtime | Starting AA_study run
-2026-03-03 15:40:47 | INFO | qiskit.passmanager.base_tasks | Pass: UnrollCustomDefinitions - 0.47803 (ms)
-2026-03-03 15:40:47 | INFO | qiskit.passmanager.base_tasks | Pass: BasisTranslator - 2.73919 (ms)

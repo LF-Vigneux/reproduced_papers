@@ -29,6 +29,7 @@ from papers.AA_study.utils.datasets import (  # noqa: E402
     get_spiral_dataset,
     get_moons_dataset,
     get_circles_dataset,
+    split_dataset,
 )
 from papers.AA_study.utils.plots import (  # noqa: E402
     plot_amplitude_encoding_limitations,
@@ -733,6 +734,18 @@ def reproduce_fig_7_simple_model(
             train_dataset, test_dataset = get_circles_dataset(
                 num_samples_per_class=sampler_size, noise=noise
             )
+            input_are_images = False
+        elif "FIG1":
+            fig_1_dataset = generate_fig_1_dataset(num_samples_per_class=sampler_size)
+            train_dataset, test_dataset = split_dataset(fig_1_dataset)
+            input_are_images = False
+        elif "FIG2":
+            fig_2_dataset = generate_fig_2_dataset(num_samples_per_class=sampler_size)
+            train_dataset, test_dataset = split_dataset(fig_2_dataset)
+            input_are_images = False
+        elif "FIG3":
+            fig_3_dataset = generate_fig_3_dataset(num_samples_per_class=sampler_size)
+            train_dataset, test_dataset = split_dataset(fig_3_dataset)
             input_are_images = False
         else:
             image_dim = np.sqrt(num_features)

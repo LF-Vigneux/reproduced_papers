@@ -471,6 +471,33 @@ def get_circles_dataset(
 
 
 # Functions that convert datasets to tensor datasets or Dataloaders
+
+
+def split_dataset(input: TensorDataset) -> tuple[TensorDataset, TensorDataset]:
+
+    X_tensor, Y_tensor = input.tensors
+
+    num_training = int(Y_tensor.numel() * 0.8)
+
+    return normalize_features(
+        TensorDataset(X_tensor[:num_training, :], Y_tensor[:num_training]),
+        min_per_feature=torch.min(X_tensor[:num_training, :], 0)
+        .values.detach()
+        .numpy(),
+        max_per_feature=torch.max(X_tensor[:num_training, :], 0)
+        .values.detach()
+        .numpy(),
+    ), normalize_features(
+        TensorDataset(X_tensor[num_training:, :], Y_tensor[num_training:]),
+        min_per_feature=torch.min(X_tensor[num_training:, :], 0)
+        .values.detach()
+        .numpy(),
+        max_per_feature=torch.max(X_tensor[num_training:, :], 0)
+        .values.detach()
+        .numpy(),
+    )
+
+
 def get_data_loader(
     dataset: TensorDataset, batch_size: int = None, shuffle: bool = True
 ) -> DataLoader:
