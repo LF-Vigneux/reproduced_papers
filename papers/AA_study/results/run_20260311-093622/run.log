@@ -1,3 +1,4 @@
 2026-03-11 09:36:22 | INFO | runtime | Starting AA_study run
 2026-03-11 09:36:23 | INFO | qiskit.passmanager.base_tasks | Pass: UnrollCustomDefinitions - 0.16904 (ms)
 2026-03-11 09:36:23 | INFO | qiskit.passmanager.base_tasks | Pass: BasisTranslator - 1.54090 (ms)
+2026-03-11 22:20:35 | INFO | root | Finished. Artifacts in: results/run_20260311-093622
